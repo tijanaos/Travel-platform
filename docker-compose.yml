@@ -11,6 +11,11 @@ services:
       - stakeholders-db-data:/var/lib/postgresql/data
     networks:
       - travel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   stakeholders-service:
     build:
@@ -26,7 +31,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - stakeholders-db
+      stakeholders-db:
+        condition: service_healthy
     networks:
       - travel-network
 
