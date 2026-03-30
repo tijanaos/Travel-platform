@@ -5,22 +5,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tijanaos/Stakeholders/internal/domain"
+	"github.com/tijanaos/Stakeholders/internal/middleware"
 	"github.com/tijanaos/Stakeholders/internal/service"
 )
 
 type UserHandler struct {
-	service *service.UserService
+	service   *service.UserService
+	jwtSecret string
 }
 
-func NewUserHandler(service *service.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(service *service.UserService, jwtSecret string) *UserHandler {
+	return &UserHandler{service: service, jwtSecret: jwtSecret}
 }
 
 func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api/users")
 	{
 		api.POST("/register", h.Register)
-		api.GET("", h.GetAllUsers)
+		api.GET("", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.GetAllUsers)
 	}
 }
 
