@@ -1,0 +1,151 @@
+{
+  "info": {
+    "name": "Blog Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "blog_id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Blog (without images)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/blogs/",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "title", "value": "Moj prvi blog", "type": "text" },
+            { "key": "description", "value": "# Naslov\n\nOvo je **markdown** opis bloga.\n\n- stavka 1\n- stavka 2", "type": "text" },
+            { "key": "author_id", "value": "1", "type": "text" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Blog (with images)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/blogs/",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "title", "value": "Blog sa slikama", "type": "text" },
+            { "key": "description", "value": "## Putovanje\n\nOvo je blog o putovanju sa **slikama**.", "type": "text" },
+            { "key": "author_id", "value": "2", "type": "text" },
+            { "key": "images", "type": "file", "src": [] }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get All Blogs",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/blogs/"
+      }
+    },
+    {
+      "name": "Get Blog by ID",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/blogs/{{blog_id}}"
+      }
+    },
+    {
+      "name": "Update Blog",
+      "request": {
+        "method": "PUT",
+        "url": "{{base_url}}/blogs/{{blog_id}}",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Izmenjen naslov\",\n  \"description\": \"## Novi opis\\n\\nIzmenjen **markdown** sadrzaj.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Delete Blog",
+      "request": {
+        "method": "DELETE",
+        "url": "{{base_url}}/blogs/{{blog_id}}"
+      }
+    },
+    {
+      "name": "Like Blog (user 1)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like?user_id=1",
+          "host": ["{{base_url}}"],
+          "path": ["blogs", "{{blog_id}}", "like"],
+          "query": [{ "key": "user_id", "value": "1" }]
+        }
+      }
+    },
+    {
+      "name": "Like Blog (user 2)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like?user_id=2",
+          "host": ["{{base_url}}"],
+          "path": ["blogs", "{{blog_id}}", "like"],
+          "query": [{ "key": "user_id", "value": "2" }]
+        }
+      }
+    },
+    {
+      "name": "Like Blog (duplicate - expect 409)",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like?user_id=1",
+          "host": ["{{base_url}}"],
+          "path": ["blogs", "{{blog_id}}", "like"],
+          "query": [{ "key": "user_id", "value": "1" }]
+        }
+      }
+    },
+    {
+      "name": "Unlike Blog (user 1)",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like?user_id=1",
+          "host": ["{{base_url}}"],
+          "path": ["blogs", "{{blog_id}}", "like"],
+          "query": [{ "key": "user_id", "value": "1" }]
+        }
+      }
+    },
+    {
+      "name": "Unlike Blog (not liked - expect 404)",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like?user_id=99",
+          "host": ["{{base_url}}"],
+          "path": ["blogs", "{{blog_id}}", "like"],
+          "query": [{ "key": "user_id", "value": "99" }]
+        }
+      }
+    },
+    {
+      "name": "Get Nonexistent Blog (expect 404)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/blogs/9999"
+      }
+    }
+  ]
+}
