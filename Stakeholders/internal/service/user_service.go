@@ -1,0 +1,62 @@
+package service
+
+import (
+	"errors"
+
+	"github.com/tijanaos/Stakeholders/internal/domain"
+	"github.com/tijanaos/Stakeholders/internal/repository"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+)
+
+type UserService struct {
+	repo *repository.UserRepository
+}
+
+func NewUserService(repo *repository.UserRepository) *UserService {
+	return &UserService{repo: repo}
+}
+
+func (s *UserService) Register(username, password, email string, role domain.Role) (*domain.User, error) {
+	if role != domain.RoleGuide && role != domain.RoleTourist {
+		return nil, errors.New("role must be 'guide' or 'tourist'")
+	}
+
+	_, err := s.repo.FindByUsername(username)
+	if err == nil {
+		return nil, errors.New("username already taken")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	_, err = s.repo.FindByEmail(email)
+	if err == nil {
+		return nil, errors.New("email already in use")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &domain.User{
+		Username: username,
+		Password: string(hashed),
+		Email:    email,
+		Role:     role,
+	}
+
+	if err := s.repo.Create(user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *UserService) GetAllUsers() ([]domain.User, error) {
+	return s.repo.FindAll()
+}
