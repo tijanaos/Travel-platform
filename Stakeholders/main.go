@@ -26,11 +26,13 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, cfg.JWTSecret)
 	userHandler := handler.NewUserHandler(userService)
+	authHandler := handler.NewAuthHandler(userService)
 
 	r := gin.Default()
 	userHandler.RegisterRoutes(r)
+	authHandler.RegisterRoutes(r)
 
 	log.Printf("Stakeholders service running on port %s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
