@@ -1,0 +1,38 @@
+services:
+  stakeholders-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stakeholders
+    ports:
+      - "5432:5432"
+    volumes:
+      - stakeholders-db-data:/var/lib/postgresql/data
+    networks:
+      - travel-network
+
+  stakeholders-service:
+    build:
+      context: ./Stakeholders
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: stakeholders-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: stakeholders
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - stakeholders-db
+    networks:
+      - travel-network
+
+volumes:
+  stakeholders-db-data:
+
+networks:
+  travel-network:
+    driver: bridge
