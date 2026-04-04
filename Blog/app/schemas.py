@@ -29,3 +29,20 @@ class BlogOut(BaseModel):
     images: List[BlogImageOut]
 
     model_config = {"from_attributes": True}
+
+class CommentCreate(BaseModel):
+    user_id: int
+    text: str
+
+class CommentUpdate(BaseModel):
+    text: str
+
+class CommentOut(BaseModel):
+    id: int
+    blog_id: int
+    user_id: int
+    text: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -15,6 +15,7 @@ class Blog(Base):
 
     images = relationship("BlogImage", back_populates="blog", cascade="all, delete-orphan")
     likes = relationship("BlogLike", back_populates="blog", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="blog", cascade="all, delete-orphan")
 
 
 class BlogImage(Base):
@@ -36,3 +37,15 @@ class BlogLike(Base):
     user_id = Column(Integer, nullable=False)
 
     blog = relationship("Blog", back_populates="likes")
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    blog_id = Column(Integer, ForeignKey("blogs.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    blog = relationship("Blog", back_populates="comments")

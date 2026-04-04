@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Blog
 from app.repository import BlogRepository
-from app.schemas import BlogCreate, BlogImageOut, BlogOut, BlogUpdate
+from app.schemas import BlogCreate, BlogImageOut, BlogOut, BlogUpdate, CommentCreate, CommentUpdate, CommentOut
 
 
 class BlogService:
@@ -85,3 +85,27 @@ class BlogService:
                 for img in blog.images
             ],
         )
+    
+    def add_comment(self, blog_id: int, data: CommentCreate) -> CommentOut:
+        self._get_or_404(blog_id)
+        comment = self.repo.add_comment(blog_id, data)
+        return CommentOut.model_validate(comment)
+
+    def get_comments(self, blog_id: int) -> list[CommentOut]:
+        self._get_or_404(blog_id)
+        return [CommentOut.model_validate(c) for c in self.repo.get_comments(blog_id)]
+
+    def update_comment(self, blog_id: int, comment_id: int, data: CommentUpdate) -> CommentOut:
+        self._get_or_404(blog_id)
+        comment = self.repo.get_comment(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        comment = self.repo.update_comment(comment, data)
+        return CommentOut.model_validate(comment)
+
+    def delete_comment(self, blog_id: int, comment_id: int) -> None:
+        self._get_or_404(blog_id)
+        comment = self.repo.get_comment(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        self.repo.delete_comment(comment)

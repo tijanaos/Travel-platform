@@ -1,8 +1,8 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app.models import Blog, BlogImage, BlogLike
-from app.schemas import BlogCreate, BlogUpdate
+from app.models import Blog, BlogImage, BlogLike, Comment
+from app.schemas import BlogCreate, BlogUpdate, CommentCreate, CommentUpdate
 
 
 class BlogRepository:
@@ -63,3 +63,26 @@ class BlogRepository:
         self.db.delete(like)
         self.db.commit()
         return True
+    
+    def add_comment(self, blog_id: int, data: CommentCreate) -> Comment:
+        comment = Comment(blog_id=blog_id, user_id=data.user_id, text=data.text)
+        self.db.add(comment)
+        self.db.commit()
+        self.db.refresh(comment)
+        return comment
+
+    def get_comments(self, blog_id: int) -> list[Comment]:
+        return self.db.query(Comment).filter(Comment.blog_id == blog_id).all()
+
+    def get_comment(self, comment_id: int) -> Comment | None:
+        return self.db.query(Comment).filter(Comment.id == comment_id).first()
+
+    def update_comment(self, comment: Comment, data: CommentUpdate) -> Comment:
+        comment.text = data.text
+        self.db.commit()
+        self.db.refresh(comment)
+        return comment
+
+    def delete_comment(self, comment: Comment) -> None:
+        self.db.delete(comment)
+        self.db.commit()
