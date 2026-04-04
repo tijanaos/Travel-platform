@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tijanaos/Stakeholders/internal/domain"
@@ -23,6 +24,8 @@ func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
 	{
 		api.POST("/register", h.Register)
 		api.GET("", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.GetAllUsers)
+		api.PATCH("/:id/block", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.BlockUser)
+		api.PATCH("/:id/unblock", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.UnblockUser)
 	}
 }
 
@@ -57,4 +60,36 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, users)
+}
+
+func (h *UserHandler) BlockUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	user, err := h.service.SetBlocked(uint(id), true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) UnblockUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	user, err := h.service.SetBlocked(uint(id), false)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
 }

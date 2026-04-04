@@ -89,3 +89,21 @@ func (s *UserService) Login(username, password string) (string, error) {
 
 	return signed, nil
 }
+
+func (s *UserService) SetBlocked(id uint, blocked bool) (*domain.User, error) {
+	user, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	if user.Role == domain.RoleAdministrator {
+		return nil, errors.New("cannot block an administrator")
+	}
+
+	if err := s.repo.SetBlocked(id, blocked); err != nil {
+		return nil, err
+	}
+
+	user.IsBlocked = blocked
+	return user, nil
+}

@@ -40,3 +40,16 @@ func (r *UserRepository) FindAll() ([]domain.User, error) {
 	err := r.db.Find(&users).Error
 	return users, err
 }
+
+func (r *UserRepository) FindByID(id uint) (*domain.User, error) {
+	var user domain.User
+	err := r.db.First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) SetBlocked(id uint, blocked bool) error {
+	return r.db.Model(&domain.User{}).Where("id = ?", id).Update("is_blocked", blocked).Error
+}
