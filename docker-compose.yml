@@ -1,0 +1,56 @@
+services:
+  stakeholders-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stakeholders
+    ports:
+      - "5432:5432"
+    volumes:
+      - stakeholders-db-data:/var/lib/postgresql/data
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  stakeholders-service:
+    build:
+      context: ./Stakeholders
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: stakeholders-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: stakeholders
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      stakeholders-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - travel-network
+    depends_on:
+      - stakeholders-db
+
+volumes:
+  stakeholders-db-data:
+
+networks:
+  travel-network:
+    driver: bridge
