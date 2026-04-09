@@ -1,12 +1,32 @@
 package middleware
 
 import (
+	"errors"
+	"math"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// GetUserID extracts the authenticated user's ID from the gin context.
+// Requires AuthMiddleware to have run first.
+func GetUserID(c *gin.Context) (uint, error) {
+	raw, exists := c.Get("user_id")
+	if !exists {
+		return 0, errors.New("user_id not found in context")
+	}
+	// JWT numbers are decoded as float64
+	f, ok := raw.(float64)
+	if !ok {
+		return 0, errors.New("user_id has unexpected type")
+	}
+	if f < 0 || f > math.MaxUint32 {
+		return 0, errors.New("user_id out of range")
+	}
+	return uint(f), nil
+}
 
 func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {

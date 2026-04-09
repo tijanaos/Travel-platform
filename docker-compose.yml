@@ -47,9 +47,12 @@ services:
       - travel-network
     depends_on:
       - stakeholders-db
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
 
 volumes:
   stakeholders-db-data:
+  pgadmin-data:
 
 networks:
   travel-network:
