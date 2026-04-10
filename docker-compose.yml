@@ -47,6 +47,8 @@ services:
       - travel-network
     depends_on:
       - stakeholders-db
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
 
   blog-db:
     image: postgres:16-alpine
@@ -90,6 +92,7 @@ services:
 volumes:
   stakeholders-db-data:
   blog-db-data:
+  pgadmin-data:
 
 networks:
   travel-network:

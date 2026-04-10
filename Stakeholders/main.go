@@ -21,16 +21,23 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&domain.User{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Profile{}); err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
+	userService := service.NewUserService(userRepo, cfg.JWTSecret)
+	userHandler := handler.NewUserHandler(userService, cfg.JWTSecret)
+	authHandler := handler.NewAuthHandler(userService)
+
+	profileRepo := repository.NewProfileRepository(db)
+	profileService := service.NewProfileService(profileRepo)
+	profileHandler := handler.NewProfileHandler(profileService, cfg.JWTSecret)
 
 	r := gin.Default()
 	userHandler.RegisterRoutes(r)
+	authHandler.RegisterRoutes(r)
+	profileHandler.RegisterRoutes(r)
 
 	log.Printf("Stakeholders service running on port %s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
