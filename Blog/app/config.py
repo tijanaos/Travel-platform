@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     server_port: int = 8081
     upload_dir: str = "uploads"
     base_url: str = "http://localhost:8081"
+    stakeholders_url: str = "http://stakeholders-service:8080"
 
     @property
     def database_url(self) -> str:

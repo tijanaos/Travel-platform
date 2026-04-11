@@ -79,6 +79,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: blog
       SERVER_PORT: 8081
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
     ports:
       - "8081:8081"
     volumes:

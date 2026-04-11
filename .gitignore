@@ -15,3 +15,6 @@ Thumbs.db
 # Uploaded images
 Blog/uploads/*
 !Blog/uploads/.gitkeep
+
+# Claude Code
+.claude/

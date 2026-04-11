@@ -1,10 +1,11 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth_client import get_user_id_from_token
 from app.database import get_db
-from app.schemas import BlogOut, BlogUpdate, CommentCreate, CommentUpdate, CommentOut
+from app.schemas import BlogOut, CommentCreate, CommentUpdate, CommentOut
 from app.service import BlogService
 
 router = APIRouter(prefix="/blogs", tags=["blogs"])
@@ -18,11 +19,13 @@ def get_service(db: Session = Depends(get_db)) -> BlogService:
 def create_blog(
     title: str = Form(...),
     description: str = Form(...),
-    author_id: int = Form(...),
     images: List[UploadFile] = File(default=[]),
+    authorization: str = Header(...),
     service: BlogService = Depends(get_service),
 ):
     from app.schemas import BlogCreate
+    token = authorization.removeprefix("Bearer ")
+    author_id = get_user_id_from_token(token)
     data = BlogCreate(title=title, description=description, author_id=author_id)
     return service.create_blog(data, images)
 
@@ -37,23 +40,24 @@ def get_blog(blog_id: int, service: BlogService = Depends(get_service)):
     return service.get_blog(blog_id)
 
 
-@router.put("/{blog_id}", response_model=BlogOut)
-def update_blog(blog_id: int, data: BlogUpdate, service: BlogService = Depends(get_service)):
-    return service.update_blog(blog_id, data)
-
-
 @router.delete("/{blog_id}", status_code=204)
-def delete_blog(blog_id: int, service: BlogService = Depends(get_service)):
-    service.delete_blog(blog_id)
+def delete_blog(blog_id: int, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
+    service.delete_blog(blog_id, user_id)
 
 
 @router.post("/{blog_id}/like", response_model=BlogOut)
-def like_blog(blog_id: int, user_id: int, service: BlogService = Depends(get_service)):
+def like_blog(blog_id: int, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
     return service.like_blog(blog_id, user_id)
 
 
 @router.delete("/{blog_id}/like", response_model=BlogOut)
-def unlike_blog(blog_id: int, user_id: int, service: BlogService = Depends(get_service)):
+def unlike_blog(blog_id: int, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
     return service.unlike_blog(blog_id, user_id)
 
 @router.post("/{blog_id}/comments", response_model=CommentOut, status_code=201)

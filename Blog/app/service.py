@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Blog
 from app.repository import BlogRepository
-from app.schemas import BlogCreate, BlogImageOut, BlogOut, BlogUpdate, CommentCreate, CommentUpdate, CommentOut
+from app.schemas import BlogCreate, BlogImageOut, BlogOut, CommentCreate, CommentUpdate, CommentOut
 
 
 class BlogService:
@@ -39,13 +39,10 @@ class BlogService:
     def get_all_blogs(self) -> List[BlogOut]:
         return [self._to_out(b) for b in self.repo.get_all()]
 
-    def update_blog(self, blog_id: int, data: BlogUpdate) -> BlogOut:
+    def delete_blog(self, blog_id: int, user_id: int) -> None:
         blog = self._get_or_404(blog_id)
-        blog = self.repo.update(blog, data)
-        return self._to_out(blog)
-
-    def delete_blog(self, blog_id: int) -> None:
-        blog = self._get_or_404(blog_id)
+        if blog.author_id != user_id:
+            raise HTTPException(status_code=403, detail="You are not the author of this blog")
         for image in blog.images:
             file_path = Path(settings.upload_dir) / image.filename
             if file_path.exists():
