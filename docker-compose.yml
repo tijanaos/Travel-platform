@@ -50,8 +50,49 @@ services:
     volumes:
       - pgadmin-data:/var/lib/pgadmin
 
+  blog-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: blog
+    ports:
+      - "5433:5432"
+    volumes:
+      - blog-db-data:/var/lib/postgresql/data
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  blog-service:
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: blog-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: blog
+      SERVER_PORT: 8081
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./Blog/uploads:/app/uploads
+    depends_on:
+      blog-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
 volumes:
   stakeholders-db-data:
+  blog-db-data:
   pgadmin-data:
 
 networks:

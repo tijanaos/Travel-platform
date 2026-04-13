@@ -1,0 +1,356 @@
+{
+  "info": {
+    "_postman_id": "b720a27c-7084-40f1-939f-73628b91fe0e",
+    "name": "Blog Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "20870864"
+  },
+  "item": [
+    {
+      "name": "Create Blog (without images)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "title",
+              "value": "Moj prvi blog",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "# Naslov\n\nOvo je **markdown** opis bloga.\n\n- stavka 1\n- stavka 2",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/blogs/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Blog (with images)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "title",
+              "value": "Blog sa slikama",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "## Putovanje\n\nOvo je blog o putovanju sa **slikama**.",
+              "type": "text"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "value": null
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/blogs/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Blogs",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/blogs/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Blog by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Blog",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Like Blog",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}",
+            "like"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Like Blog (duplicate - expect 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}",
+            "like"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Unlike Blog",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}",
+            "like"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Unlike Blog (not liked - expect 404)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/blogs/{{blog_id}}/like",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "{{blog_id}}",
+            "like"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Nonexistent Blog (expect 404)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/blogs/9999",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "blogs",
+            "9999"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"pera\",\n  \"password\": \"pera123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"pera\",\n  \"password\": \"pera123\",\n  \"email\": \"pera@gmail.com\",\n  \"role\": \"tourist\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/users/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "users", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "validate",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/auth/validate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "validate"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "blog_id",
+      "value": "1"
+    },
+    {
+      "key": "token",
+      "value": "PASTE_JWT_TOKEN_HERE"
+    }
+  ]
+}

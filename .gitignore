@@ -11,3 +11,10 @@ vendor/
 # OS
 .DS_Store
 Thumbs.db
+
+# Uploaded images
+Blog/uploads/*
+!Blog/uploads/.gitkeep
+
+# Claude Code
+.claude/
