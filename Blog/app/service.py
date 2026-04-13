@@ -83,26 +83,30 @@ class BlogService:
             ],
         )
     
-    def add_comment(self, blog_id: int, data: CommentCreate) -> CommentOut:
+    def add_comment(self, blog_id: int, user_id: int, data: CommentCreate) -> CommentOut:
         self._get_or_404(blog_id)
-        comment = self.repo.add_comment(blog_id, data)
+        comment = self.repo.add_comment(blog_id, user_id, data)
         return CommentOut.model_validate(comment)
+
+    def update_comment(self, blog_id: int, comment_id: int, user_id: int, data: CommentUpdate) -> CommentOut:
+        self._get_or_404(blog_id)
+        comment = self.repo.get_comment(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        if comment.user_id != user_id:
+            raise HTTPException(status_code=403, detail="You are not the author of this comment")
+        comment = self.repo.update_comment(comment, data)
+        return CommentOut.model_validate(comment)
+
+    def delete_comment(self, blog_id: int, comment_id: int, user_id: int) -> None:
+        self._get_or_404(blog_id)
+        comment = self.repo.get_comment(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        if comment.user_id != user_id:
+            raise HTTPException(status_code=403, detail="You are not the author of this comment")
+        self.repo.delete_comment(comment)
 
     def get_comments(self, blog_id: int) -> list[CommentOut]:
         self._get_or_404(blog_id)
         return [CommentOut.model_validate(c) for c in self.repo.get_comments(blog_id)]
-
-    def update_comment(self, blog_id: int, comment_id: int, data: CommentUpdate) -> CommentOut:
-        self._get_or_404(blog_id)
-        comment = self.repo.get_comment(comment_id)
-        if not comment:
-            raise HTTPException(status_code=404, detail="Comment not found")
-        comment = self.repo.update_comment(comment, data)
-        return CommentOut.model_validate(comment)
-
-    def delete_comment(self, blog_id: int, comment_id: int) -> None:
-        self._get_or_404(blog_id)
-        comment = self.repo.get_comment(comment_id)
-        if not comment:
-            raise HTTPException(status_code=404, detail="Comment not found")
-        self.repo.delete_comment(comment)

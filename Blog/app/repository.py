@@ -64,8 +64,8 @@ class BlogRepository:
         self.db.commit()
         return True
     
-    def add_comment(self, blog_id: int, data: CommentCreate) -> Comment:
-        comment = Comment(blog_id=blog_id, user_id=data.user_id, text=data.text)
+    def add_comment(self, blog_id: int, user_id: int, data: CommentCreate) -> Comment:
+        comment = Comment(blog_id=blog_id, user_id=user_id, text=data.text)
         self.db.add(comment)
         self.db.commit()
         self.db.refresh(comment)

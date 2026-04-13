@@ -61,20 +61,26 @@ def unlike_blog(blog_id: int, authorization: str = Header(...), service: BlogSer
     return service.unlike_blog(blog_id, user_id)
 
 @router.post("/{blog_id}/comments", response_model=CommentOut, status_code=201)
-def add_comment(blog_id: int, data: CommentCreate, service: BlogService = Depends(get_service)):
-    return service.add_comment(blog_id, data)
+def add_comment(blog_id: int, data: CommentCreate, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
+    return service.add_comment(blog_id, user_id, data)
+
+
+@router.put("/{blog_id}/comments/{comment_id}", response_model=CommentOut)
+def update_comment(blog_id: int, comment_id: int, data: CommentUpdate, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
+    return service.update_comment(blog_id, comment_id, user_id, data)
+
+
+@router.delete("/{blog_id}/comments/{comment_id}", status_code=204)
+def delete_comment(blog_id: int, comment_id: int, authorization: str = Header(...), service: BlogService = Depends(get_service)):
+    token = authorization.removeprefix("Bearer ")
+    user_id = get_user_id_from_token(token)
+    service.delete_comment(blog_id, comment_id, user_id)
 
 
 @router.get("/{blog_id}/comments", response_model=List[CommentOut])
 def get_comments(blog_id: int, service: BlogService = Depends(get_service)):
     return service.get_comments(blog_id)
-
-
-@router.put("/{blog_id}/comments/{comment_id}", response_model=CommentOut)
-def update_comment(blog_id: int, comment_id: int, data: CommentUpdate, service: BlogService = Depends(get_service)):
-    return service.update_comment(blog_id, comment_id, data)
-
-
-@router.delete("/{blog_id}/comments/{comment_id}", status_code=204)
-def delete_comment(blog_id: int, comment_id: int, service: BlogService = Depends(get_service)):
-    service.delete_comment(blog_id, comment_id)

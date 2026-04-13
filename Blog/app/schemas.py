@@ -31,7 +31,6 @@ class BlogOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class CommentCreate(BaseModel):
-    user_id: int
     text: str
 
 class CommentUpdate(BaseModel):
