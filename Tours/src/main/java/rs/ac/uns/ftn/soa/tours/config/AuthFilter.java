@@ -54,7 +54,6 @@ public class AuthFilter extends OncePerRequestFilter {
 
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 request.setAttribute("userId", resp.getBody().getUserId());
-                request.setAttribute("role", resp.getBody().getRole());
                 filterChain.doFilter(request, response);
             } else {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -67,13 +66,12 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String path, String method) {
-        // GET on tours list and single tour is public (tourists browse before buying)
         if (method.equals("GET") && path.matches("/api/tours/?.*")) return true;
         return false;
     }
 
-    public record ValidateResponse(Long userId, String role) {
-        public Long getUserId() { return userId; }
-        public String getRole() { return role; }
+    // Stakeholders /api/auth/validate returns {"user_id": <number>}
+    public record ValidateResponse(Long user_id) {
+        public Long getUserId() { return user_id; }
     }
 }
