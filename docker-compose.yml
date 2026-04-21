@@ -90,9 +90,50 @@ services:
     networks:
       - travel-network
 
+  tours-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tours_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - tours-db-data:/var/lib/postgresql/data
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tours-service:
+    build:
+      context: ./Tours
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: tours-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: tours_db
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
+      UPLOAD_DIR: uploads
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./Tours/uploads:/app/uploads
+    depends_on:
+      tours-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
 volumes:
   stakeholders-db-data:
   blog-db-data:
+  tours-db-data:
   pgadmin-data:
 
 networks:
