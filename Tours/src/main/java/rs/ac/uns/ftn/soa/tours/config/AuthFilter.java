@@ -1,24 +1,27 @@
 package rs.ac.uns.ftn.soa.tours.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 
 import java.io.IOException;
+import java.util.Base64;
+import java.util.Map;
 
-@Component
 public class AuthFilter extends OncePerRequestFilter {
 
-    @Value("${stakeholders.service.url}")
-    private String stakeholdersUrl;
-
+    private final String stakeholdersUrl;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AuthFilter(String stakeholdersUrl) {
+        this.stakeholdersUrl = stakeholdersUrl;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -27,7 +30,6 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Public endpoints — no auth needed
         if (isPublicPath(path, request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
@@ -54,6 +56,15 @@ public class AuthFilter extends OncePerRequestFilter {
 
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 request.setAttribute("userId", resp.getBody().getUserId());
+
+                try {
+                    String payload = authHeader.substring(7).split("\\.")[1];
+                    byte[] decoded = Base64.getUrlDecoder().decode(payload);
+                    Map<?, ?> claims = objectMapper.readValue(decoded, Map.class);
+                    request.setAttribute("role", claims.get("role"));
+                    request.setAttribute("username", claims.get("username"));
+                } catch (Exception ignored) {}
+
                 filterChain.doFilter(request, response);
             } else {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -66,11 +77,15 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String path, String method) {
-        if (method.equals("GET") && path.matches("/api/tours/?.*")) return true;
+        if (method.equals("OPTIONS")) return true;
+        // GET /api/tours (list) and GET /api/tours/{id} are public, but not /api/tours/my
+        if (method.equals("GET") && path.matches("/api/tours/\\d+")) return true;
+        if (method.equals("GET") && path.equals("/api/tours")) return true;
+        if (method.equals("GET") && path.matches("/api/tours/\\d+/keypoints")) return true;
+        if (method.equals("GET") && path.matches("/api/tours/\\d+/reviews")) return true;
         return false;
     }
 
-    // Stakeholders /api/auth/validate returns {"user_id": <number>}
     public record ValidateResponse(Long user_id) {
         public Long getUserId() { return user_id; }
     }

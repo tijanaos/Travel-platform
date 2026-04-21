@@ -25,6 +25,10 @@ public class TourService {
         return tourRepository.save(tour);
     }
 
+    public List<Tour> getAllTours() {
+        return tourRepository.findAll();
+    }
+
     public List<Tour> getMyTours(Long authorId) {
         return tourRepository.findByAuthorId(authorId);
     }

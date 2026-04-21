@@ -16,9 +16,17 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${upload.dir}")
     private String uploadDir;
 
+    @Value("${stakeholders.service.url}")
+    private String stakeholdersUrl;
+
     @Bean
-    public FilterRegistrationBean<AuthFilter> authFilter(AuthFilter filter) {
-        FilterRegistrationBean<AuthFilter> reg = new FilterRegistrationBean<>(filter);
+    public AuthFilter authFilter() {
+        return new AuthFilter(stakeholdersUrl);
+    }
+
+    @Bean
+    public FilterRegistrationBean<AuthFilter> authFilterRegistration() {
+        FilterRegistrationBean<AuthFilter> reg = new FilterRegistrationBean<>(authFilter());
         reg.addUrlPatterns("/api/*");
         reg.setOrder(1);
         return reg;
