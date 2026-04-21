@@ -16,7 +16,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
     try {
-      await stakeholdersClient.post('/api/auth/register', form);
+      await stakeholdersClient.post('/api/users/register', form);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 1500);
     } catch (err: any) {
