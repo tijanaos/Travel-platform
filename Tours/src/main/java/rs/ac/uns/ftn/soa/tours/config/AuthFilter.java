@@ -77,6 +77,7 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String path, String method) {
+        if (method.equals("OPTIONS")) return true;
         if (method.equals("GET") && path.matches("/api/tours/?.*")) return true;
         return false;
     }
