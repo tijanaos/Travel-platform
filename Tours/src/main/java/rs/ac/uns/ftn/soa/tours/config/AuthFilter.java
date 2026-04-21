@@ -5,7 +5,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
@@ -16,11 +15,13 @@ import java.util.Map;
 
 public class AuthFilter extends OncePerRequestFilter {
 
-    @Value("${stakeholders.service.url}")
-    private String stakeholdersUrl;
-
+    private final String stakeholdersUrl;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AuthFilter(String stakeholdersUrl) {
+        this.stakeholdersUrl = stakeholdersUrl;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -29,7 +30,6 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Public endpoints — no auth needed
         if (isPublicPath(path, request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
@@ -57,7 +57,6 @@ public class AuthFilter extends OncePerRequestFilter {
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 request.setAttribute("userId", resp.getBody().getUserId());
 
-                // Decode JWT payload to extract role and username
                 try {
                     String payload = authHeader.substring(7).split("\\.")[1];
                     byte[] decoded = Base64.getUrlDecoder().decode(payload);
@@ -82,7 +81,6 @@ public class AuthFilter extends OncePerRequestFilter {
         return false;
     }
 
-    // Stakeholders /api/auth/validate returns {"user_id": <number>}
     public record ValidateResponse(Long user_id) {
         public Long getUserId() { return user_id; }
     }
