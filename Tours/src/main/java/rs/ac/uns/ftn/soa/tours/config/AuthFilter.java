@@ -6,7 +6,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
@@ -15,7 +14,6 @@ import java.io.IOException;
 import java.util.Base64;
 import java.util.Map;
 
-@Component
 public class AuthFilter extends OncePerRequestFilter {
 
     @Value("${stakeholders.service.url}")
