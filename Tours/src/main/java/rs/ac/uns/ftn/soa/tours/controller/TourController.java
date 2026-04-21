@@ -34,6 +34,11 @@ public class TourController {
         return ResponseEntity.status(HttpStatus.CREATED).body(tour);
     }
 
+    @GetMapping
+    public ResponseEntity<List<Tour>> getAllTours() {
+        return ResponseEntity.ok(tourService.getAllTours());
+    }
+
     @GetMapping("/my")
     public ResponseEntity<List<Tour>> getMyTours(HttpServletRequest httpRequest) {
         Long authorId = (Long) httpRequest.getAttribute("userId");
