@@ -35,6 +35,18 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileService, cfg.JWTSecret)
 
 	r := gin.Default()
+
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
+
 	userHandler.RegisterRoutes(r)
 	authHandler.RegisterRoutes(r)
 	profileHandler.RegisterRoutes(r)

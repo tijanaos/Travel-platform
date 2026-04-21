@@ -1,5 +1,6 @@
 package rs.ac.uns.ftn.soa.tours.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 
 import java.io.IOException;
+import java.util.Base64;
+import java.util.Map;
 
 @Component
 public class AuthFilter extends OncePerRequestFilter {
@@ -19,6 +22,7 @@ public class AuthFilter extends OncePerRequestFilter {
     private String stakeholdersUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -54,6 +58,16 @@ public class AuthFilter extends OncePerRequestFilter {
 
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 request.setAttribute("userId", resp.getBody().getUserId());
+
+                // Decode JWT payload to extract role and username
+                try {
+                    String payload = authHeader.substring(7).split("\\.")[1];
+                    byte[] decoded = Base64.getUrlDecoder().decode(payload);
+                    Map<?, ?> claims = objectMapper.readValue(decoded, Map.class);
+                    request.setAttribute("role", claims.get("role"));
+                    request.setAttribute("username", claims.get("username"));
+                } catch (Exception ignored) {}
+
                 filterChain.doFilter(request, response);
             } else {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

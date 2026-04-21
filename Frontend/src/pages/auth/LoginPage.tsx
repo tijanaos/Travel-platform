@@ -15,7 +15,17 @@ export default function LoginPage() {
     setError('');
     try {
       const res = await stakeholdersClient.post('/api/auth/login', { username, password });
-      const { token, user } = res.data;
+      const { token } = res.data;
+
+      // Decode JWT payload (base64) to extract user info without extra API call
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const user = {
+        id: payload.user_id,
+        username: payload.username,
+        email: '',
+        role: payload.role,
+      };
+
       saveToken(token);
       login(user, token);
       navigate('/blogs');
