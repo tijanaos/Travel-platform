@@ -33,14 +33,14 @@ export default function BlogListPage() {
           {blogs.map(blog => (
             <Link to={`/blogs/${blog.id}`} key={blog.id} style={{ textDecoration: 'none' }}>
               <div className="card" style={{ cursor: 'pointer' }}>
-                <h3 style={{ marginBottom: 8, color: '#1a1a2e' }}>{blog.title}</h3>
+                <h3 style={{ marginBottom: 8, color: '#1a1a2e', wordBreak: 'break-word' }}>{blog.title}</h3>
                 <p style={{ color: '#666', fontSize: 14, marginBottom: 8 }}>
-                  by {blog.authorUsername} · {new Date(blog.createdAt).toLocaleDateString()}
+                  {new Date(blog.created_at).toLocaleDateString()}
                 </p>
-                <p style={{ color: '#444', fontSize: 14 }}>
+                <p style={{ color: '#444', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                   {blog.description?.substring(0, 150)}{blog.description?.length > 150 ? '...' : ''}
                 </p>
-                <p style={{ marginTop: 8, fontSize: 13, color: '#888' }}>❤ {blog.likesCount ?? 0} likes</p>
+                <p style={{ marginTop: 8, fontSize: 13, color: '#888' }}>❤ {blog.likes_count ?? 0} likes</p>
               </div>
             </Link>
           ))}

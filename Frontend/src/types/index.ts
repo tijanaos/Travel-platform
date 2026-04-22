@@ -15,26 +15,29 @@ export interface Profile {
   motto?: string;
 }
 
+export interface BlogImage {
+  id: string;
+  url: string;
+}
+
 export interface Blog {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  createdAt: string;
-  authorId: number;
-  authorUsername: string;
-  images: string[];
-  likesCount: number;
-  likedByMe: boolean;
+  created_at: string;
+  author_id: number;
+  likes_count: number;
+  liked_by_me: boolean;
+  images: BlogImage[];
 }
 
 export interface Comment {
-  id: number;
-  blogId: number;
-  authorId: number;
-  authorUsername: string;
+  id: string;
+  blog_id: string;
+  user_id: number;
   text: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Tour {

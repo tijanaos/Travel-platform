@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class BlogImageOut(BaseModel):
-    id: int
+    id: str
     url: str
 
 
@@ -20,28 +20,28 @@ class BlogUpdate(BaseModel):
 
 
 class BlogOut(BaseModel):
-    id: int
+    id: str
     title: str
     description: str
     created_at: datetime
     author_id: int
     likes_count: int
+    liked_by_me: bool
     images: List[BlogImageOut]
 
-    model_config = {"from_attributes": True}
 
 class CommentCreate(BaseModel):
     text: str
 
+
 class CommentUpdate(BaseModel):
     text: str
 
+
 class CommentOut(BaseModel):
-    id: int
-    blog_id: int
+    id: str
+    blog_id: str
     user_id: int
     text: str
     created_at: datetime
     updated_at: datetime
-
-    model_config = {"from_attributes": True}

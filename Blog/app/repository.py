@@ -1,88 +1,157 @@
+from datetime import datetime
 from typing import List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from app.models import Blog, BlogImage, BlogLike, Comment
+
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from app.models import BLOGS_COLLECTION
 from app.schemas import BlogCreate, BlogUpdate, CommentCreate, CommentUpdate
 
 
+def _normalize_blog(doc: dict) -> dict:
+    blog_id = str(doc["_id"])
+    doc["id"] = blog_id
+    del doc["_id"]
+    doc["images"] = [
+        {"id": str(img["_id"]), "filename": img["filename"]}
+        for img in doc.get("images", [])
+    ]
+    doc["comments"] = [
+        {
+            "id": str(c["_id"]),
+            "blog_id": blog_id,
+            "user_id": c["user_id"],
+            "text": c["text"],
+            "created_at": c["created_at"],
+            "updated_at": c["updated_at"],
+        }
+        for c in doc.get("comments", [])
+    ]
+    return doc
+
+
 class BlogRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.col = db[BLOGS_COLLECTION]
 
-    def create(self, data: BlogCreate) -> Blog:
-        blog = Blog(title=data.title, description=data.description, author_id=data.author_id)
-        self.db.add(blog)
-        self.db.commit()
-        self.db.refresh(blog)
-        return blog
+    async def create(self, data: BlogCreate) -> dict:
+        doc = {
+            "title": data.title,
+            "description": data.description,
+            "author_id": data.author_id,
+            "created_at": datetime.utcnow(),
+            "images": [],
+            "likes": [],
+            "comments": [],
+        }
+        result = await self.col.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return _normalize_blog(doc)
 
-    def get_by_id(self, blog_id: int) -> Optional[Blog]:
-        return self.db.query(Blog).filter(Blog.id == blog_id).first()
+    async def get_by_id(self, blog_id: str) -> Optional[dict]:
+        if not ObjectId.is_valid(blog_id):
+            return None
+        doc = await self.col.find_one({"_id": ObjectId(blog_id)})
+        return _normalize_blog(doc) if doc else None
 
-    def get_all(self) -> List[Blog]:
-        return self.db.query(Blog).order_by(Blog.created_at.desc()).all()
+    async def get_all(self) -> List[dict]:
+        docs = await self.col.find().sort("created_at", -1).to_list(None)
+        return [_normalize_blog(d) for d in docs]
 
-    def update(self, blog: Blog, data: BlogUpdate) -> Blog:
-        if data.title is not None:
-            blog.title = data.title
-        if data.description is not None:
-            blog.description = data.description
-        self.db.commit()
-        self.db.refresh(blog)
-        return blog
+    async def delete(self, blog_id: str) -> None:
+        await self.col.delete_one({"_id": ObjectId(blog_id)})
 
-    def delete(self, blog: Blog) -> None:
-        self.db.delete(blog)
-        self.db.commit()
-
-    def add_image(self, blog_id: int, filename: str) -> BlogImage:
-        image = BlogImage(blog_id=blog_id, filename=filename)
-        self.db.add(image)
-        self.db.commit()
-        self.db.refresh(image)
-        return image
-
-    def add_like(self, blog_id: int, user_id: int) -> bool:
-        like = BlogLike(blog_id=blog_id, user_id=user_id)
-        self.db.add(like)
-        try:
-            self.db.commit()
-            return True
-        except IntegrityError:
-            self.db.rollback()
-            return False
-
-    def remove_like(self, blog_id: int, user_id: int) -> bool:
-        like = (
-            self.db.query(BlogLike)
-            .filter(BlogLike.blog_id == blog_id, BlogLike.user_id == user_id)
-            .first()
+    async def add_image(self, blog_id: str, filename: str) -> None:
+        await self.col.update_one(
+            {"_id": ObjectId(blog_id)},
+            {"$push": {"images": {"_id": ObjectId(), "filename": filename}}},
         )
-        if not like:
+
+    async def add_like(self, blog_id: str, user_id: int) -> bool:
+        existing = await self.col.find_one({"_id": ObjectId(blog_id), "likes": user_id})
+        if existing:
             return False
-        self.db.delete(like)
-        self.db.commit()
+        await self.col.update_one(
+            {"_id": ObjectId(blog_id)},
+            {"$push": {"likes": user_id}},
+        )
         return True
-    
-    def add_comment(self, blog_id: int, user_id: int, data: CommentCreate) -> Comment:
-        comment = Comment(blog_id=blog_id, user_id=user_id, text=data.text)
-        self.db.add(comment)
-        self.db.commit()
-        self.db.refresh(comment)
-        return comment
 
-    def get_comments(self, blog_id: int) -> list[Comment]:
-        return self.db.query(Comment).filter(Comment.blog_id == blog_id).all()
+    async def remove_like(self, blog_id: str, user_id: int) -> bool:
+        result = await self.col.update_one(
+            {"_id": ObjectId(blog_id)},
+            {"$pull": {"likes": user_id}},
+        )
+        return result.modified_count > 0
 
-    def get_comment(self, comment_id: int) -> Comment | None:
-        return self.db.query(Comment).filter(Comment.id == comment_id).first()
+    async def add_comment(self, blog_id: str, user_id: int, data: CommentCreate) -> dict:
+        comment_id = ObjectId()
+        now = datetime.utcnow()
+        comment_doc = {
+            "_id": comment_id,
+            "user_id": user_id,
+            "text": data.text,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self.col.update_one(
+            {"_id": ObjectId(blog_id)},
+            {"$push": {"comments": comment_doc}},
+        )
+        return {
+            "id": str(comment_id),
+            "blog_id": blog_id,
+            "user_id": user_id,
+            "text": data.text,
+            "created_at": now,
+            "updated_at": now,
+        }
 
-    def update_comment(self, comment: Comment, data: CommentUpdate) -> Comment:
-        comment.text = data.text
-        self.db.commit()
-        self.db.refresh(comment)
-        return comment
+    async def get_comments(self, blog_id: str) -> List[dict]:
+        doc = await self.col.find_one({"_id": ObjectId(blog_id)}, {"comments": 1})
+        if not doc:
+            return []
+        return [
+            {
+                "id": str(c["_id"]),
+                "blog_id": blog_id,
+                "user_id": c["user_id"],
+                "text": c["text"],
+                "created_at": c["created_at"],
+                "updated_at": c["updated_at"],
+            }
+            for c in doc.get("comments", [])
+        ]
 
-    def delete_comment(self, comment: Comment) -> None:
-        self.db.delete(comment)
-        self.db.commit()
+    async def get_comment(self, blog_id: str, comment_id: str) -> Optional[dict]:
+        if not ObjectId.is_valid(comment_id):
+            return None
+        doc = await self.col.find_one(
+            {"_id": ObjectId(blog_id), "comments._id": ObjectId(comment_id)},
+            {"comments.$": 1},
+        )
+        if not doc or not doc.get("comments"):
+            return None
+        c = doc["comments"][0]
+        return {
+            "id": str(c["_id"]),
+            "blog_id": blog_id,
+            "user_id": c["user_id"],
+            "text": c["text"],
+            "created_at": c["created_at"],
+            "updated_at": c["updated_at"],
+        }
+
+    async def update_comment(self, blog_id: str, comment_id: str, data: CommentUpdate) -> Optional[dict]:
+        now = datetime.utcnow()
+        await self.col.update_one(
+            {"_id": ObjectId(blog_id), "comments._id": ObjectId(comment_id)},
+            {"$set": {"comments.$.text": data.text, "comments.$.updated_at": now}},
+        )
+        return await self.get_comment(blog_id, comment_id)
+
+    async def delete_comment(self, blog_id: str, comment_id: str) -> None:
+        await self.col.update_one(
+            {"_id": ObjectId(blog_id)},
+            {"$pull": {"comments": {"_id": ObjectId(comment_id)}}},
+        )

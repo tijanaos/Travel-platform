@@ -51,19 +51,17 @@ services:
       - pgadmin-data:/var/lib/pgadmin
 
   blog-db:
-    image: postgres:16-alpine
+    image: mongo:7
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blog
+      MONGO_INITDB_DATABASE: blog
     ports:
-      - "5433:5432"
+      - "27017:27017"
     volumes:
-      - blog-db-data:/var/lib/postgresql/data
+      - blog-db-data:/data/db
     networks:
       - travel-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -73,11 +71,8 @@ services:
       context: ./Blog
       dockerfile: Dockerfile
     environment:
-      DB_HOST: blog-db
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: blog
+      MONGO_URI: mongodb://blog-db:27017
+      MONGO_DB: blog
       SERVER_PORT: 8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
     ports:

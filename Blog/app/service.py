@@ -4,20 +4,18 @@ from pathlib import Path
 from typing import List
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Blog
 from app.repository import BlogRepository
 from app.schemas import BlogCreate, BlogImageOut, BlogOut, CommentCreate, CommentUpdate, CommentOut
 
 
 class BlogService:
-    def __init__(self, db: Session):
-        self.repo = BlogRepository(db)
+    def __init__(self, repo: BlogRepository):
+        self.repo = repo
 
-    def create_blog(self, data: BlogCreate, images: List[UploadFile]) -> BlogOut:
-        blog = self.repo.create(data)
+    async def create_blog(self, data: BlogCreate, images: List[UploadFile]) -> BlogOut:
+        blog = await self.repo.create(data)
 
         upload_path = Path(settings.upload_dir)
         upload_path.mkdir(parents=True, exist_ok=True)
@@ -27,86 +25,93 @@ class BlogService:
                 ext = Path(image.filename).suffix
                 unique_name = f"{uuid.uuid4()}{ext}"
                 with open(upload_path / unique_name, "wb") as f:
-                    f.write(image.file.read())
-                self.repo.add_image(blog.id, unique_name)
+                    f.write(await image.read())
+                await self.repo.add_image(blog["id"], unique_name)
 
-        return self._to_out(self.repo.get_by_id(blog.id))
-
-    def get_blog(self, blog_id: int) -> BlogOut:
-        blog = self._get_or_404(blog_id)
+        blog = await self.repo.get_by_id(blog["id"])
         return self._to_out(blog)
 
-    def get_all_blogs(self) -> List[BlogOut]:
-        return [self._to_out(b) for b in self.repo.get_all()]
+    async def get_blog(self, blog_id: str, user_id: int | None = None) -> BlogOut:
+        blog = await self._get_or_404(blog_id)
+        return self._to_out(blog, user_id)
 
-    def delete_blog(self, blog_id: int, user_id: int) -> None:
-        blog = self._get_or_404(blog_id)
-        if blog.author_id != user_id:
+    async def get_all_blogs(self, user_id: int | None = None) -> List[BlogOut]:
+        blogs = await self.repo.get_all()
+        return [self._to_out(b, user_id) for b in blogs]
+
+    async def delete_blog(self, blog_id: str, user_id: int) -> None:
+        blog = await self._get_or_404(blog_id)
+        if blog["author_id"] != user_id:
             raise HTTPException(status_code=403, detail="You are not the author of this blog")
-        for image in blog.images:
-            file_path = Path(settings.upload_dir) / image.filename
+        for image in blog.get("images", []):
+            file_path = Path(settings.upload_dir) / image["filename"]
             if file_path.exists():
                 os.remove(file_path)
-        self.repo.delete(blog)
+        await self.repo.delete(blog_id)
 
-    def like_blog(self, blog_id: int, user_id: int) -> BlogOut:
-        self._get_or_404(blog_id)
-        success = self.repo.add_like(blog_id, user_id)
+    async def like_blog(self, blog_id: str, user_id: int) -> BlogOut:
+        await self._get_or_404(blog_id)
+        success = await self.repo.add_like(blog_id, user_id)
         if not success:
             raise HTTPException(status_code=409, detail="User already liked this blog")
-        return self._to_out(self.repo.get_by_id(blog_id))
+        blog = await self.repo.get_by_id(blog_id)
+        return self._to_out(blog, user_id)
 
-    def unlike_blog(self, blog_id: int, user_id: int) -> BlogOut:
-        self._get_or_404(blog_id)
-        success = self.repo.remove_like(blog_id, user_id)
+    async def unlike_blog(self, blog_id: str, user_id: int) -> BlogOut:
+        await self._get_or_404(blog_id)
+        success = await self.repo.remove_like(blog_id, user_id)
         if not success:
             raise HTTPException(status_code=404, detail="Like not found")
-        return self._to_out(self.repo.get_by_id(blog_id))
+        blog = await self.repo.get_by_id(blog_id)
+        return self._to_out(blog, user_id)
 
-    def _get_or_404(self, blog_id: int) -> Blog:
-        blog = self.repo.get_by_id(blog_id)
+    async def _get_or_404(self, blog_id: str) -> dict:
+        blog = await self.repo.get_by_id(blog_id)
         if not blog:
             raise HTTPException(status_code=404, detail="Blog not found")
         return blog
 
-    def _to_out(self, blog: Blog) -> BlogOut:
+    def _to_out(self, blog: dict, user_id: int | None = None) -> BlogOut:
+        likes = blog.get("likes", [])
         return BlogOut(
-            id=blog.id,
-            title=blog.title,
-            description=blog.description,
-            created_at=blog.created_at,
-            author_id=blog.author_id,
-            likes_count=len(blog.likes),
+            id=blog["id"],
+            title=blog["title"],
+            description=blog["description"],
+            created_at=blog["created_at"],
+            author_id=blog["author_id"],
+            likes_count=len(likes),
+            liked_by_me=user_id in likes if user_id is not None else False,
             images=[
-                BlogImageOut(id=img.id, url=f"{settings.base_url}/uploads/{img.filename}")
-                for img in blog.images
+                BlogImageOut(id=img["id"], url=f"{settings.base_url}/uploads/{img['filename']}")
+                for img in blog.get("images", [])
             ],
         )
-    
-    def add_comment(self, blog_id: int, user_id: int, data: CommentCreate) -> CommentOut:
-        self._get_or_404(blog_id)
-        comment = self.repo.add_comment(blog_id, user_id, data)
-        return CommentOut.model_validate(comment)
 
-    def update_comment(self, blog_id: int, comment_id: int, user_id: int, data: CommentUpdate) -> CommentOut:
-        self._get_or_404(blog_id)
-        comment = self.repo.get_comment(comment_id)
+    async def add_comment(self, blog_id: str, user_id: int, data: CommentCreate) -> CommentOut:
+        await self._get_or_404(blog_id)
+        comment = await self.repo.add_comment(blog_id, user_id, data)
+        return CommentOut(**comment)
+
+    async def update_comment(self, blog_id: str, comment_id: str, user_id: int, data: CommentUpdate) -> CommentOut:
+        await self._get_or_404(blog_id)
+        comment = await self.repo.get_comment(blog_id, comment_id)
         if not comment:
             raise HTTPException(status_code=404, detail="Comment not found")
-        if comment.user_id != user_id:
+        if comment["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="You are not the author of this comment")
-        comment = self.repo.update_comment(comment, data)
-        return CommentOut.model_validate(comment)
+        comment = await self.repo.update_comment(blog_id, comment_id, data)
+        return CommentOut(**comment)
 
-    def delete_comment(self, blog_id: int, comment_id: int, user_id: int) -> None:
-        self._get_or_404(blog_id)
-        comment = self.repo.get_comment(comment_id)
+    async def delete_comment(self, blog_id: str, comment_id: str, user_id: int) -> None:
+        await self._get_or_404(blog_id)
+        comment = await self.repo.get_comment(blog_id, comment_id)
         if not comment:
             raise HTTPException(status_code=404, detail="Comment not found")
-        if comment.user_id != user_id:
+        if comment["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="You are not the author of this comment")
-        self.repo.delete_comment(comment)
+        await self.repo.delete_comment(blog_id, comment_id)
 
-    def get_comments(self, blog_id: int) -> list[CommentOut]:
-        self._get_or_404(blog_id)
-        return [CommentOut.model_validate(c) for c in self.repo.get_comments(blog_id)]
+    async def get_comments(self, blog_id: str) -> List[CommentOut]:
+        await self._get_or_404(blog_id)
+        comments = await self.repo.get_comments(blog_id)
+        return [CommentOut(**c) for c in comments]
