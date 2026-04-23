@@ -12,11 +12,16 @@ export const toursClient = axios.create({
   baseURL: 'http://localhost:8082',
 });
 
+export const followerClient = axios.create({
+  baseURL: 'http://localhost:8083',
+});
+
 function setAuthHeader(token: string | null) {
   const header = token ? `Bearer ${token}` : '';
   stakeholdersClient.defaults.headers.common['Authorization'] = header;
   blogClient.defaults.headers.common['Authorization'] = header;
   toursClient.defaults.headers.common['Authorization'] = header;
+  followerClient.defaults.headers.common['Authorization'] = header;
 }
 
 export function initAuth() {

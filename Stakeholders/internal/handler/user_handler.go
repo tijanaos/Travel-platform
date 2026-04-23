@@ -24,6 +24,7 @@ func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
 	{
 		api.POST("/register", h.Register)
 		api.GET("", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.GetAllUsers)
+		api.GET("/:id", middleware.AuthMiddleware(h.jwtSecret), h.GetUser)
 		api.PATCH("/:id/block", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.BlockUser)
 		api.PATCH("/:id/unblock", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.UnblockUser)
 	}
@@ -50,6 +51,26 @@ func (h *UserHandler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, user)
+}
+
+func (h *UserHandler) GetUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	user, err := h.service.GetUserByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"role":     user.Role,
+	})
 }
 
 func (h *UserHandler) GetAllUsers(c *gin.Context) {

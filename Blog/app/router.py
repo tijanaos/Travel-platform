@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.auth_client import get_user_id_from_token, try_get_user_id_from_token
@@ -31,9 +31,14 @@ async def create_blog(
 
 
 @router.get("/", response_model=List[BlogOut])
-async def get_all_blogs(authorization: Optional[str] = Header(default=None), service: BlogService = Depends(get_service)):
+async def get_all_blogs(
+    authorization: Optional[str] = Header(default=None),
+    author_ids: Optional[str] = Query(default=None, description="Comma-separated author IDs"),
+    service: BlogService = Depends(get_service),
+):
     user_id = try_get_user_id_from_token(authorization.removeprefix("Bearer ")) if authorization else None
-    return await service.get_all_blogs(user_id)
+    parsed = [int(x) for x in author_ids.split(",") if x.strip()] if author_ids else None
+    return await service.get_all_blogs(user_id, parsed)
 
 
 @router.get("/{blog_id}", response_model=BlogOut)

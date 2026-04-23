@@ -19,6 +19,8 @@ export default function Navbar() {
         <Link to="/blogs" style={styles.link}>Blogs</Link>
         {isAuthenticated && (
           <>
+            <Link to="/feed" style={styles.link}>My Feed</Link>
+            <Link to="/recommendations" style={styles.link}>Discover</Link>
             <Link to="/tours" style={styles.link}>Tours</Link>
             <Link to="/profile" style={styles.link}>Profile</Link>
             {(user?.role === 'guide') && (

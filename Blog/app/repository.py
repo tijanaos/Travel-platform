@@ -58,6 +58,10 @@ class BlogRepository:
         docs = await self.col.find().sort("created_at", -1).to_list(None)
         return [_normalize_blog(d) for d in docs]
 
+    async def get_by_author_ids(self, author_ids: List[int]) -> List[dict]:
+        docs = await self.col.find({"author_id": {"$in": author_ids}}).sort("created_at", -1).to_list(None)
+        return [_normalize_blog(d) for d in docs]
+
     async def delete(self, blog_id: str) -> None:
         await self.col.delete_one({"_id": ObjectId(blog_id)})
 

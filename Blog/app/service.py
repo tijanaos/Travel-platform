@@ -35,8 +35,11 @@ class BlogService:
         blog = await self._get_or_404(blog_id)
         return self._to_out(blog, user_id)
 
-    async def get_all_blogs(self, user_id: int | None = None) -> List[BlogOut]:
-        blogs = await self.repo.get_all()
+    async def get_all_blogs(self, user_id: int | None = None, author_ids: List[int] | None = None) -> List[BlogOut]:
+        if author_ids is not None:
+            blogs = await self.repo.get_by_author_ids(author_ids)
+        else:
+            blogs = await self.repo.get_all()
         return [self._to_out(b, user_id) for b in blogs]
 
     async def delete_blog(self, blog_id: str, user_id: int) -> None:

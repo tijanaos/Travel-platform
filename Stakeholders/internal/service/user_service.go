@@ -64,6 +64,10 @@ func (s *UserService) GetAllUsers() ([]domain.User, error) {
 	return s.repo.FindAll()
 }
 
+func (s *UserService) GetUserByID(id uint) (*domain.User, error) {
+	return s.repo.FindByID(id)
+}
+
 func (s *UserService) Login(username, password string) (string, error) {
 	user, err := s.repo.FindByUsername(username)
 	if err != nil {
