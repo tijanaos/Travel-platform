@@ -17,6 +17,8 @@ import TourDetailPage from './pages/tours/TourDetailPage';
 import TourCreatePage from './pages/tours/TourCreatePage';
 import MyToursPage from './pages/tours/MyToursPage';
 
+import AdminPage from './pages/admin/AdminPage';
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
@@ -41,6 +43,7 @@ function AppRoutes() {
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/feed" element={<ProtectedRoute><FeedPage /></ProtectedRoute>} />
           <Route path="/recommendations" element={<ProtectedRoute><RecommendationsPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

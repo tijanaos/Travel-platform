@@ -26,6 +26,18 @@ export default function Navbar() {
             {(user?.role === 'guide') && (
               <Link to="/tours/new" style={styles.link}>New Tour</Link>
             )}
+
+            {user?.role === 'administrator' && (
+              <Link to="/admin" style={{
+                ...styles.link,
+                background: 'rgba(255,255,255,0.12)',
+                padding: '4px 10px',
+                borderRadius: 5,
+                fontSize: 13,
+              }}>
+                Admin
+              </Link>
+            )}
           </>
         )}
         {isAuthenticated ? (
@@ -42,12 +54,16 @@ export default function Navbar() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  nav: { display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 24px', background: '#1a1a2e', color: 'white' },
+  nav: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '12px 24px', background: '#1a1a2e', color: 'white'
+  },
   brand: { fontWeight: 'bold', fontSize: '1.2rem' },
   brandLink: { color: 'white', textDecoration: 'none' },
   links: { display: 'flex', gap: '16px', alignItems: 'center' },
   link: { color: '#ccc', textDecoration: 'none' },
-  button: { background: 'transparent', border: '1px solid #ccc', color: '#ccc',
-    cursor: 'pointer', padding: '4px 12px', borderRadius: '4px' },
+  button: {
+    background: 'transparent', border: '1px solid #ccc', color: '#ccc',
+    cursor: 'pointer', padding: '4px 12px', borderRadius: '4px'
+  },
 };

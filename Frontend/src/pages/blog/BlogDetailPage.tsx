@@ -35,7 +35,7 @@ export default function BlogDetailPage() {
         setBlog(b => b ? { ...b, likes_count: b.likes_count + 1 } : b);
         setLikedByMe(true);
       }
-    } catch {}
+    } catch { }
   }
 
   async function addComment(e: React.FormEvent) {
