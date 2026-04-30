@@ -1,18 +1,18 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.config import settings
 
-engine = create_engine(settings.database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_client: AsyncIOMotorClient | None = None
 
 
-class Base(DeclarativeBase):
-    pass
+def init_db() -> None:
+    global _client
+    _client = AsyncIOMotorClient(settings.mongo_uri)
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def close_db() -> None:
+    if _client:
+        _client.close()
+
+
+def get_db() -> AsyncIOMotorDatabase:
+    return _client[settings.mongo_db]

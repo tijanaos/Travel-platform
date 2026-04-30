@@ -9,6 +9,8 @@ import ProfilePage from './pages/auth/ProfilePage';
 import BlogListPage from './pages/blog/BlogListPage';
 import BlogDetailPage from './pages/blog/BlogDetailPage';
 import BlogCreatePage from './pages/blog/BlogCreatePage';
+import FeedPage from './pages/blog/FeedPage';
+import RecommendationsPage from './pages/follow/RecommendationsPage';
 
 import TourListPage from './pages/tours/TourListPage';
 import TourDetailPage from './pages/tours/TourDetailPage';
@@ -37,6 +39,8 @@ function AppRoutes() {
           <Route path="/tours/my" element={<ProtectedRoute><MyToursPage /></ProtectedRoute>} />
           <Route path="/tours/:id" element={<ProtectedRoute><TourDetailPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/feed" element={<ProtectedRoute><FeedPage /></ProtectedRoute>} />
+          <Route path="/recommendations" element={<ProtectedRoute><RecommendationsPage /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

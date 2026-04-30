@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { blogClient } from '../../api/client';
+import { followerClient } from '../../api/client';
 import { Blog } from '../../types';
-import { useAuth } from '../../context/AuthContext';
 
-export default function BlogListPage() {
+export default function FeedPage() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    blogClient.get('/blogs')
+    followerClient.get('/feed')
       .then(res => setBlogs(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -21,13 +19,16 @@ export default function BlogListPage() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Blogs</h1>
-        {isAuthenticated && (
-          <Link to="/blogs/new"><button className="btn-primary">+ New Blog</button></Link>
-        )}
+        <h1 className="page-title" style={{ margin: 0 }}>My Feed</h1>
+        <Link to="/blogs"><button className="btn-secondary">All Blogs</button></Link>
       </div>
       {blogs.length === 0 ? (
-        <p style={{ color: '#666' }}>No blogs yet.</p>
+        <div className="card" style={{ textAlign: 'center', color: '#666' }}>
+          <p>No posts yet from people you follow.</p>
+          <p style={{ fontSize: 14, marginTop: 8 }}>
+            <Link to="/recommendations" style={{ color: '#667eea' }}>Discover people to follow →</Link>
+          </p>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {blogs.map(blog => (
@@ -37,7 +38,7 @@ export default function BlogListPage() {
                 <p style={{ color: '#666', fontSize: 14, marginBottom: 8 }}>
                   {new Date(blog.created_at).toLocaleDateString()}
                 </p>
-                <p style={{ color: '#444', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                <p style={{ color: '#444', fontSize: 14, wordBreak: 'break-word' }}>
                   {blog.description?.substring(0, 150)}{blog.description?.length > 150 ? '...' : ''}
                 </p>
                 <p style={{ marginTop: 8, fontSize: 13, color: '#888' }}>❤ {blog.likes_count ?? 0} likes</p>

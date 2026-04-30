@@ -51,19 +51,17 @@ services:
       - pgadmin-data:/var/lib/pgadmin
 
   blog-db:
-    image: postgres:16-alpine
+    image: mongo:7
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blog
+      MONGO_INITDB_DATABASE: blog
     ports:
-      - "5433:5432"
+      - "27017:27017"
     volumes:
-      - blog-db-data:/var/lib/postgresql/data
+      - blog-db-data:/data/db
     networks:
       - travel-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -73,11 +71,8 @@ services:
       context: ./Blog
       dockerfile: Dockerfile
     environment:
-      DB_HOST: blog-db
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: blog
+      MONGO_URI: mongodb://blog-db:27017
+      MONGO_DB: blog
       SERVER_PORT: 8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
     ports:
@@ -130,10 +125,52 @@ services:
     networks:
       - travel-network
 
+  follower-db:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/followerpass
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - follower-db-data:/data
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -O /dev/null -q http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  follower-service:
+    build:
+      context: ./Follower
+      dockerfile: Dockerfile
+    environment:
+      NEO4J_URI: bolt://follower-db:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: followerpass
+      SERVER_PORT: 8083
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
+      BLOG_URL: http://blog-service:8081
+    ports:
+      - "8083:8083"
+    depends_on:
+      follower-db:
+        condition: service_healthy
+      stakeholders-service:
+        condition: service_started
+      blog-service:
+        condition: service_started
+    networks:
+      - travel-network
+
 volumes:
   stakeholders-db-data:
   blog-db-data:
   tours-db-data:
+  follower-db-data:
   pgadmin-data:
 
 networks:

@@ -1,6 +1,5 @@
 import httpx
 from fastapi import HTTPException, status
-
 from app.config import settings
 
 
@@ -27,10 +26,3 @@ def get_user_id_from_token(token: str) -> int:
         )
 
     return response.json()["user_id"]
-
-
-def try_get_user_id_from_token(token: str) -> int | None:
-    try:
-        return get_user_id_from_token(token)
-    except Exception:
-        return None

@@ -2,12 +2,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    mongo_uri: str = "mongodb://localhost:27017"
-    mongo_db: str = "blog"
-    server_port: int = 8081
-    upload_dir: str = "uploads"
-    base_url: str = "http://localhost:8081"
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "followerpass"
+    server_port: int = 8083
     stakeholders_url: str = "http://stakeholders-service:8080"
+    blog_url: str = "http://blog-service:8081"
 
     model_config = {"env_file": ".env"}
 
