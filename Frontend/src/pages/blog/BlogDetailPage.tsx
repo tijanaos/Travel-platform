@@ -16,7 +16,7 @@ export default function BlogDetailPage() {
 
   useEffect(() => {
     blogClient.get(`/blogs/${id}`).then(res => setBlog(res.data));
-    blogClient.get(`/blogs/${id}/comments`).then(res => setComments(res.data)).catch(() => {});
+    blogClient.get(`/blogs/${id}/comments`).then(res => setComments(res.data)).catch(() => { });
   }, [id]);
 
   async function toggleLike() {
@@ -29,7 +29,7 @@ export default function BlogDetailPage() {
         await blogClient.post(`/blogs/${id}/like`);
         setBlog(b => b ? { ...b, likedByMe: true, likesCount: b.likesCount + 1 } : b);
       }
-    } catch {}
+    } catch { }
   }
 
   async function addComment(e: React.FormEvent) {
@@ -86,36 +86,82 @@ export default function BlogDetailPage() {
 
       <div className="card">
         <h3 style={{ marginBottom: 16 }}>Comments ({comments.length})</h3>
-        {comments.map(c => (
-          <div key={c.id} style={{ borderBottom: '1px solid #eee', paddingBottom: 12, marginBottom: 12 }}>
-            {editingComment?.id === c.id ? (
-              <div>
-                <textarea rows={2} value={editingComment.text} style={{ width: '100%', marginBottom: 8 }}
-                  onChange={e => setEditingComment({ id: c.id, text: e.target.value })} />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn-primary" onClick={() => saveEdit(c.id, editingComment.text)}>Save</button>
-                  <button className="btn-secondary" onClick={() => setEditingComment(null)}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>
-                  <strong>{c.authorUsername}</strong> · {new Date(c.createdAt).toLocaleString()}
-                  {c.updatedAt !== c.createdAt && ' (edited)'}
-                </p>
-                <p style={{ fontSize: 14 }}>{c.text}</p>
-                {user?.id === c.authorId && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => setEditingComment({ id: c.id, text: c.text })}>Edit</button>
-                    <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => deleteComment(c.id)}>Delete</button>
+        {comments.length === 0 && (
+          <p style={{ color: '#aaa', fontSize: 14, marginBottom: 12 }}>No comments yet :c.</p>
+        )}
+        {comments.map(c => {
+          const authorId = (c as any).author_id ?? (c as any).user_id ?? c.authorId;
+          const authorName = (c as any).author_username ?? c.authorUsername ?? `Korisnik #${authorId}`;
+          const createdAt = (c as any).created_at ?? c.createdAt;
+          const updatedAt = (c as any).updated_at ?? c.updatedAt;
+          const wasEdited = updatedAt && createdAt && updatedAt !== createdAt;
+          const isOwner = user?.id === authorId;
+
+          return (
+            <div key={c.id} style={{ borderBottom: '1px solid #eee', paddingBottom: 14, marginBottom: 14 }}>
+              {editingComment?.id === c.id ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div style={avatarStyle}>{authorName.charAt(0).toUpperCase()}</div>
+                    <strong style={{ fontSize: 14 }}>{authorName}</strong>
                   </div>
-                )}
-              </>
-            )}
-          </div>
-        ))}
+                  <textarea rows={2} value={editingComment.text} style={{ width: '100%', marginBottom: 8 }}
+                    onChange={e => setEditingComment({ id: c.id, text: e.target.value })} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-primary" style={{ padding: '6px 14px', fontSize: 13 }}
+                      onClick={() => saveEdit(c.id, editingComment.text)}>Save</button>
+                    <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: 13 }}
+                      onClick={() => setEditingComment(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={avatarStyle}>{authorName.charAt(0).toUpperCase()}</div>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{authorName}</span>
+                      <div style={{ fontSize: 12, color: '#aaa', marginTop: 1 }}>
+                        {createdAt ? new Date(createdAt).toLocaleString('sr-RS', {
+                          day: '2-digit', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        }) : ''}
+                        {wasEdited && (
+                          <span style={{
+                            marginLeft: 8, fontSize: 11, background: '#f5f5f5',
+                            color: '#999', padding: '1px 6px', borderRadius: 10,
+                          }}>
+                            Edited · {new Date(updatedAt).toLocaleString('sr-RS', {
+                              day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 14, lineHeight: 1.6, color: '#333', paddingLeft: 36 }}>{c.text}</p>
+                  {isOwner && (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, paddingLeft: 36 }}>
+                      <button onClick={() => setEditingComment({ id: c.id, text: c.text })}
+                        style={{
+                          background: 'none', border: '1px solid #ddd', borderRadius: 5,
+                          padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: '#555'
+                        }}>
+                        Edit
+                      </button>
+                      <button onClick={() => deleteComment(c.id)}
+                        style={{
+                          background: 'none', border: '1px solid #f5c2c2', borderRadius: 5,
+                          padding: '3px 10px', fontSize: 12, cursor: 'pointer', color: '#dc3545'
+                        }}>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
 
         {isAuthenticated ? (
           <form onSubmit={addComment} style={{ marginTop: 8 }}>
@@ -131,3 +177,17 @@ export default function BlogDetailPage() {
     </div>
   );
 }
+
+const avatarStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: '50%',
+  background: '#1a1a2e',
+  color: 'white',
+  fontSize: 13,
+  fontWeight: 600,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+};
