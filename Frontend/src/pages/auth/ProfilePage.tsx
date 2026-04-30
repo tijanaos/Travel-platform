@@ -17,9 +17,9 @@ export default function ProfilePage() {
       .then(res => {
         setProfile(res.data);
         setForm({
-          firstName: res.data.firstName || '',
-          lastName: res.data.lastName || '',
-          biography: res.data.biography || '',
+          firstName: res.data.first_name || '',
+          lastName: res.data.last_name || '',
+          biography: res.data.bio || '',
           motto: res.data.motto || '',
         });
       })
@@ -30,15 +30,12 @@ export default function ProfilePage() {
     e.preventDefault();
     setError('');
     try {
-      const data = new FormData();
-      data.append('firstName', form.firstName);
-      data.append('lastName', form.lastName);
-      data.append('biography', form.biography);
-      data.append('motto', form.motto);
-      if (imageFile) data.append('image', imageFile);
-
-      const res = await stakeholdersClient.put('/api/profile/me', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const res = await stakeholdersClient.put('/api/profile/me', {
+        first_name: form.firstName,
+        last_name: form.lastName,
+        bio: form.biography,
+        motto: form.motto,
+        profile_picture: '',
       });
       setProfile(res.data);
       setEditing(false);
@@ -56,19 +53,19 @@ export default function ProfilePage() {
       <h1 className="page-title">My Profile</h1>
       <div className="card">
         <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', marginBottom: 20 }}>
-          {profile.profileImage && (
-            <img src={`http://localhost:8080${profile.profileImage}`}
+          {profile.profile_picture && (
+            <img src={`http://localhost:8080${profile.profile_picture}`}
               alt="profile" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
           )}
           <div>
-            <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{profile.firstName} {profile.lastName}</p>
+            <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{profile.first_name} {profile.last_name}</p>
             <p style={{ color: '#666', fontSize: 14 }}>@{user?.username} · {user?.role}</p>
           </div>
         </div>
 
         {!editing ? (
           <>
-            <p style={{ marginBottom: 8 }}><strong>Biography:</strong> {profile.biography || '—'}</p>
+            <p style={{ marginBottom: 8 }}><strong>Biography:</strong> {profile.bio || '—'}</p>
             <p style={{ marginBottom: 16 }}><strong>Motto:</strong> {profile.motto || '—'}</p>
             <button className="btn-primary" onClick={() => setEditing(true)}>Edit Profile</button>
           </>
