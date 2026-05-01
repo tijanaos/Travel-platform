@@ -90,9 +90,9 @@ class BlogService:
             ],
         )
 
-    async def add_comment(self, blog_id: str, user_id: int, data: CommentCreate) -> CommentOut:
+    async def add_comment(self, blog_id: str, user_id: int, username: str, data: CommentCreate) -> CommentOut:
         await self._get_or_404(blog_id)
-        comment = await self.repo.add_comment(blog_id, user_id, data)
+        comment = await self.repo.add_comment(blog_id, user_id, username, data)
         return CommentOut(**comment)
 
     async def update_comment(self, blog_id: str, comment_id: str, user_id: int, data: CommentUpdate) -> CommentOut:

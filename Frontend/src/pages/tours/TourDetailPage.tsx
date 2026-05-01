@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { toursClient } from '../../api/client';
 import { Tour, KeyPoint, Review } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
-// Fix default marker icons for Leaflet + Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Marker koji se moze pomerati (drag) za edit
+const editIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
 });
 
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
@@ -27,27 +33,78 @@ export default function TourDetailPage() {
   const [keyPoints, setKeyPoints] = useState<KeyPoint[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
 
+  // --- ADD KEY POINT state ---
   const [addingKP, setAddingKP] = useState(false);
   const [pendingLatLng, setPendingLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [kpForm, setKpForm] = useState({ name: '', description: '' });
   const [kpImage, setKpImage] = useState<File | null>(null);
+
+  // --- EDIT KEY POINT state ---
+  const [editingKP, setEditingKP] = useState<KeyPoint | null>(null);
+  const [editLatLng, setEditLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '' });
+  const [editImage, setEditImage] = useState<File | null>(null);
 
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', visitDate: '' });
   const [reviewImages, setReviewImages] = useState<File[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [error, setError] = useState('');
 
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (keyPoints.length < 2) {
+      setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
+      return;
+    }
+    // OSRM public routing API — prati ulice, bez API ključa
+    const coords = keyPoints.map(kp => `${kp.longitude},${kp.latitude}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.routes?.[0]) {
+          const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+            ([lng, lat]: [number, number]) => [lat, lng]
+          );
+          setRouteCoords(coords);
+        }
+      })
+      .catch(() => {
+        // Fallback na pravu liniju ako OSRM ne radi
+        setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
+      });
+  }, [keyPoints]);
+
   useEffect(() => {
     toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
     toursClient.get(`/api/tours/${id}/keypoints`).then(res => setKeyPoints(res.data));
-    toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => {});
+    toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => { });
   }, [id]);
 
+  // Odredjuje sta se desava na klik mape
   function handleMapClick(lat: number, lng: number) {
-    if (!addingKP) return;
-    setPendingLatLng({ lat, lng });
+    if (addingKP) setPendingLatLng({ lat, lng });
+    else if (editingKP) setEditLatLng({ lat, lng });
   }
 
+  // Pokrece edit mod za određeni key point
+  function startEditKP(kp: KeyPoint) {
+    setEditingKP(kp);
+    setEditLatLng({ lat: kp.latitude, lng: kp.longitude }); // trenutna pozicija kao početna
+    setEditForm({ name: kp.name, description: kp.description || '' });
+    setEditImage(null);
+    setAddingKP(false); // iskljuci add mod ako je bio aktivan
+    setPendingLatLng(null);
+  }
+
+  function cancelEdit() {
+    setEditingKP(null);
+    setEditLatLng(null);
+    setEditForm({ name: '', description: '' });
+    setEditImage(null);
+  }
+
+  // --- SUBMIT ADD ---
   async function submitKeyPoint(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingLatLng) return;
@@ -70,6 +127,29 @@ export default function TourDetailPage() {
     } catch { setError('Failed to add key point'); }
   }
 
+  // --- SUBMIT EDIT ---
+  async function submitEditKeyPoint(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingKP || !editLatLng) return;
+    try {
+      const data = new FormData();
+      data.append('name', editForm.name);
+      data.append('description', editForm.description);
+      data.append('latitude', String(editLatLng.lat));
+      data.append('longitude', String(editLatLng.lng));
+      if (editImage) data.append('image', editImage);
+
+      const res = await toursClient.put(
+        `/api/tours/${id}/keypoints/${editingKP.id}`,
+        data,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      setKeyPoints(kps => kps.map(kp => kp.id === editingKP.id ? res.data : kp));
+      cancelEdit();
+    } catch { setError('Failed to update key point'); }
+  }
+
+  // --- DELETE ---
   async function deleteKeyPoint(kpId: number) {
     try {
       await toursClient.delete(`/api/tours/${id}/keypoints/${kpId}`);
@@ -99,9 +179,12 @@ export default function TourDetailPage() {
 
   const isAuthor = user?.id === tour.authorId;
   const isTourist = user?.role === 'tourist';
+  const isMapInteractive = addingKP || !!editingKP;
+
   const mapCenter: [number, number] = keyPoints.length > 0
     ? [keyPoints[0].latitude, keyPoints[0].longitude]
     : [44.8176, 20.4569];
+
 
   return (
     <div style={{ maxWidth: 800 }}>
@@ -126,52 +209,95 @@ export default function TourDetailPage() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3>Key Points ({keyPoints.length})</h3>
-          {isAuthor && (
-            <button className={addingKP ? 'btn-secondary' : 'btn-primary'}
-              onClick={() => { setAddingKP(!addingKP); setPendingLatLng(null); }}>
+          {isAuthor && !editingKP && (
+            <button
+              className={addingKP ? 'btn-secondary' : 'btn-primary'}
+              onClick={() => { setAddingKP(!addingKP); setPendingLatLng(null); }}
+            >
               {addingKP ? 'Cancel' : '+ Add Key Point'}
             </button>
           )}
         </div>
 
-        {addingKP && (
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
-            Click on the map to select a location for the key point.
+        {/* Instrukcije za korisnika */}
+        {addingKP && !pendingLatLng && (
+          <p style={{ fontSize: 13, color: '#1976d2', background: '#e3f2fd', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
+            📍 Click on the map to select a location for the new key point.
+          </p>
+        )}
+        {editingKP && (
+          <p style={{ fontSize: 13, color: '#e65100', background: '#fff3e0', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
+            ✏️ Editing: <strong>{editingKP.name}</strong> — click on the map to change position, or keep the current one.
           </p>
         )}
 
-        <MapContainer center={mapCenter} zoom={13} style={{ height: 350, borderRadius: 8, marginBottom: 12 }}>
+        <MapContainer center={mapCenter} zoom={13} style={{ height: 380, borderRadius: 8, marginBottom: 12 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {addingKP && <MapClickHandler onMapClick={handleMapClick} />}
-          {keyPoints.map(kp => (
+
+          {/* Klik handler — aktivan samo kad je add ili edit mod */}
+          {isMapInteractive && <MapClickHandler onMapClick={handleMapClick} />}
+
+          {/* Polyline — crta rutu ture */}
+          {routeCoords.length > 1 && (
+            <Polyline positions={routeCoords} color="#1976d2" weight={3} dashArray="6,4" />
+          )}
+
+          {/* Postojeci key point markeri */}
+          {keyPoints.map((kp, index) => (
             <Marker key={kp.id} position={[kp.latitude, kp.longitude]}>
               <Popup>
-                <strong>{kp.name}</strong><br />
-                {kp.description}<br />
-                {kp.imageUrl && <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100 }} />}
+                <strong>{index + 1}. {kp.name}</strong><br />
+                {kp.description && <span style={{ color: '#555' }}>{kp.description}<br /></span>}
+                {kp.imageUrl && (
+                  <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100, marginTop: 4 }} />
+                )}
                 {isAuthor && (
-                  <button onClick={() => deleteKeyPoint(kp.id)}
-                    style={{ marginTop: 6, background: '#dc3545', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
-                    Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <button
+                      onClick={() => startEditKP(kp)}
+                      style={{ background: '#1976d2', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteKeyPoint(kp.id)}
+                      style={{ background: '#dc3545', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
               </Popup>
             </Marker>
           ))}
-          {pendingLatLng && (
+
+          {/* Privremeni marker za ADD */}
+          {pendingLatLng && addingKP && (
             <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}>
               <Popup>New key point here</Popup>
             </Marker>
           )}
+
+          {/* Marker za EDIT — crveni, pokazuje novu poziciju */}
+          {editingKP && editLatLng && (
+            <Marker position={[editLatLng.lat, editLatLng.lng]} icon={editIcon}>
+              <Popup>New position for: {editingKP.name}</Popup>
+            </Marker>
+          )}
         </MapContainer>
 
+        {/* Forma za ADD */}
         {pendingLatLng && addingKP && (
-          <form onSubmit={submitKeyPoint} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
-            <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
-              Selected: {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
+          <form onSubmit={submitKeyPoint} style={{ background: '#f0f7ff', padding: 16, borderRadius: 8, marginBottom: 12 }}>
+            <p style={{ fontSize: 13, color: '#1976d2', marginBottom: 8 }}>
+              📍 Selected location: {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
+              <button type="button" onClick={() => setPendingLatLng(null)}
+                style={{ marginLeft: 10, fontSize: 11, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', padding: '1px 6px' }}>
+                Change
+              </button>
             </p>
             <div className="form-group">
-              <label>Name</label>
+              <label>Name *</label>
               <input value={kpForm.name} onChange={e => setKpForm(f => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="form-group">
@@ -183,12 +309,43 @@ export default function TourDetailPage() {
               <input type="file" accept="image/*" style={{ padding: 4 }}
                 onChange={e => setKpImage(e.target.files?.[0] || null)} />
             </div>
+            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
             <button className="btn-primary" type="submit">Save Key Point</button>
+          </form>
+        )}
+
+        {/* Forma za EDIT */}
+        {editingKP && (
+          <form onSubmit={submitEditKeyPoint} style={{ background: '#fff8f0', padding: 16, borderRadius: 8, border: '1px solid #ffcc80' }}>
+            <h4 style={{ marginBottom: 12, color: '#e65100' }}>✏️ Edit Key Point</h4>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+              {editLatLng
+                ? `New location: ${editLatLng.lat.toFixed(5)}, ${editLatLng.lng.toFixed(5)}`
+                : 'Click on map to change location'}
+            </p>
+            <div className="form-group">
+              <label>Name *</label>
+              <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label>New Image (optional)</label>
+              <input type="file" accept="image/*" style={{ padding: 4 }}
+                onChange={e => setEditImage(e.target.files?.[0] || null)} />
+            </div>
+            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-primary" type="submit">Save Changes</button>
+              <button className="btn-secondary" type="button" onClick={cancelEdit}>Cancel</button>
+            </div>
           </form>
         )}
       </div>
 
-      {/* Reviews Section */}
+      {/* Reviews Section — nepromenjeno */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3>Reviews ({reviews.length})</h3>
@@ -196,7 +353,6 @@ export default function TourDetailPage() {
             <button className="btn-primary" onClick={() => setShowReviewForm(true)}>Leave Review</button>
           )}
         </div>
-
         {showReviewForm && (
           <form onSubmit={submitReview} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
             <div className="form-group">
@@ -226,7 +382,6 @@ export default function TourDetailPage() {
             </div>
           </form>
         )}
-
         {reviews.length === 0 ? (
           <p style={{ color: '#888', fontSize: 14 }}>No reviews yet.</p>
         ) : (

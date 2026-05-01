@@ -110,7 +110,7 @@ export default function BlogDetailPage() {
             ) : (
               <>
                 <p style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>
-                  <strong>User #{c.user_id}</strong> · {new Date(c.created_at).toLocaleString()}
+                  <strong>@{c.username || `User #${c.user_id}`}</strong> · {new Date(c.created_at).toLocaleString()}
                   {c.updated_at !== c.created_at && ' (edited)'}
                 </p>
                 <p style={{ fontSize: 14, wordBreak: 'break-word' }}>{c.text}</p>

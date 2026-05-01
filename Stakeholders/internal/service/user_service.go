@@ -74,6 +74,10 @@ func (s *UserService) Login(username, password string) (string, error) {
 		return "", errors.New("invalid credentials")
 	}
 
+	if user.IsBlocked {
+		return "", errors.New("your account has been blocked")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return "", errors.New("invalid credentials")
 	}

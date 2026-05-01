@@ -21,6 +21,7 @@ def _normalize_blog(doc: dict) -> dict:
             "id": str(c["_id"]),
             "blog_id": blog_id,
             "user_id": c["user_id"],
+            "username": c.get("username", "unknown"),
             "text": c["text"],
             "created_at": c["created_at"],
             "updated_at": c["updated_at"],
@@ -88,12 +89,13 @@ class BlogRepository:
         )
         return result.modified_count > 0
 
-    async def add_comment(self, blog_id: str, user_id: int, data: CommentCreate) -> dict:
+    async def add_comment(self, blog_id: str, user_id: int, username: str, data: CommentCreate) -> dict:
         comment_id = ObjectId()
         now = datetime.utcnow()
         comment_doc = {
             "_id": comment_id,
             "user_id": user_id,
+            "username": username,
             "text": data.text,
             "created_at": now,
             "updated_at": now,
@@ -106,6 +108,7 @@ class BlogRepository:
             "id": str(comment_id),
             "blog_id": blog_id,
             "user_id": user_id,
+            "username": username,
             "text": data.text,
             "created_at": now,
             "updated_at": now,
@@ -120,6 +123,7 @@ class BlogRepository:
                 "id": str(c["_id"]),
                 "blog_id": blog_id,
                 "user_id": c["user_id"],
+                "username": c.get("username", "unknown"),
                 "text": c["text"],
                 "created_at": c["created_at"],
                 "updated_at": c["updated_at"],
@@ -141,6 +145,7 @@ class BlogRepository:
             "id": str(c["_id"]),
             "blog_id": blog_id,
             "user_id": c["user_id"],
+            "username": c.get("username", "unknown"),
             "text": c["text"],
             "created_at": c["created_at"],
             "updated_at": c["updated_at"],
