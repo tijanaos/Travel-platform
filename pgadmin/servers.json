@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "stakeholders-db",
+      "Group": "Servers",
+      "Host": "stakeholders-db",
+      "Port": 5432,
+      "MaintenanceDB": "stakeholders",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "tours-db",
+      "Group": "Servers",
+      "Host": "tours-db",
+      "Port": 5432,
+      "MaintenanceDB": "tours_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
