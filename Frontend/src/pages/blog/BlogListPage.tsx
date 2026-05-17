@@ -10,7 +10,7 @@ export default function BlogListPage() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    blogClient.get('/blogs')
+    blogClient.get('/api/blogs')
       .then(res => setBlogs(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
