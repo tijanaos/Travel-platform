@@ -16,6 +16,7 @@ import TourListPage from './pages/tours/TourListPage';
 import TourDetailPage from './pages/tours/TourDetailPage';
 import TourCreatePage from './pages/tours/TourCreatePage';
 import MyToursPage from './pages/tours/MyToursPage';
+import SimulatorPage from './pages/tours/SimulatorPage';
 
 import AdminPage from './pages/admin/AdminPage';
 
@@ -44,6 +45,7 @@ function AppRoutes() {
           <Route path="/feed" element={<ProtectedRoute><FeedPage /></ProtectedRoute>} />
           <Route path="/recommendations" element={<ProtectedRoute><RecommendationsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/simulator" element={<ProtectedRoute><SimulatorPage /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

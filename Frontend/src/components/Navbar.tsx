@@ -22,6 +22,7 @@ export default function Navbar() {
             <Link to="/feed" style={styles.link}>My Feed</Link>
             <Link to="/recommendations" style={styles.link}>Discover</Link>
             <Link to="/tours" style={styles.link}>Tours</Link>
+            {user?.role === 'tourist' && <Link to="/simulator" style={styles.link}>Position</Link>}
             <Link to="/profile" style={styles.link}>Profile</Link>
             {(user?.role === 'guide') && (
               <Link to="/tours/new" style={styles.link}>New Tour</Link>
