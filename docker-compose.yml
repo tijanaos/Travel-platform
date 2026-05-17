@@ -184,6 +184,26 @@ services:
     networks:
       - travel-network
 
+  gateway:
+    build:
+      context: ./Gateway
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8084
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
+      BLOG_URL: http://blog-service:8081
+      TOURS_URL: http://tours-service:8082
+      FOLLOWER_URL: http://follower-service:8083
+    ports:
+      - "8084:8084"
+    depends_on:
+      - stakeholders-service
+      - blog-service
+      - tours-service
+      - follower-service
+    networks:
+      - travel-network
+
 volumes:
   stakeholders-db-data:
   blog-db-data:
