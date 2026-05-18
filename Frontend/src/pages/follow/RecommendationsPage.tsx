@@ -48,9 +48,9 @@ export default function RecommendationsPage() {
 
   useEffect(() => {
     Promise.all([
-      followerClient.get('/recommendations'),
-      followerClient.get('/discover'),
-      followerClient.get('/following'),
+      followerClient.get('/api/recommendations'),
+      followerClient.get('/api/discover'),
+      followerClient.get('/api/following'),
     ]).then(async ([recRes, discRes, followingRes]) => {
       const followingSet: Set<number> = new Set(followingRes.data);
       setFollowing(followingSet);
@@ -73,12 +73,12 @@ export default function RecommendationsPage() {
   }, []);
 
   async function handleFollow(userId: number) {
-    await followerClient.post(`/follow/${userId}`);
+    await followerClient.post(`/api/follow/${userId}`);
     setFollowing(prev => new Set([...prev, userId]));
   }
 
   async function handleUnfollow(userId: number) {
-    await followerClient.delete(`/follow/${userId}`);
+    await followerClient.delete(`/api/follow/${userId}`);
     setFollowing(prev => {
       const next = new Set(prev);
       next.delete(userId);

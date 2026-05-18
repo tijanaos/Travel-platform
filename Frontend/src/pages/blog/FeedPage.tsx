@@ -8,7 +8,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    followerClient.get('/feed')
+    followerClient.get('/api/feed')
       .then(res => setBlogs(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));

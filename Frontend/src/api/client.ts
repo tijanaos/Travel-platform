@@ -1,28 +1,17 @@
 import axios from 'axios';
 
-export const stakeholdersClient = axios.create({
-  baseURL: 'http://localhost:8080',
-});
-
-export const blogClient = axios.create({
-  baseURL: 'http://localhost:8081',
-});
-
-export const toursClient = axios.create({
-  baseURL: 'http://localhost:8082',
-});
-
-export const followerClient = axios.create({
-  baseURL: 'http://localhost:8083',
+const gatewayClient = axios.create({
+  baseURL: 'http://localhost:8084',
 });
 
 function setAuthHeader(token: string | null) {
-  const header = token ? `Bearer ${token}` : '';
-  stakeholdersClient.defaults.headers.common['Authorization'] = header;
-  blogClient.defaults.headers.common['Authorization'] = header;
-  toursClient.defaults.headers.common['Authorization'] = header;
-  followerClient.defaults.headers.common['Authorization'] = header;
+  gatewayClient.defaults.headers.common['Authorization'] = token ? `Bearer ${token}` : '';
 }
+
+export const stakeholdersClient = gatewayClient;
+export const blogClient = gatewayClient;
+export const toursClient = gatewayClient;
+export const followerClient = gatewayClient;
 
 export function initAuth() {
   const token = localStorage.getItem('token');
