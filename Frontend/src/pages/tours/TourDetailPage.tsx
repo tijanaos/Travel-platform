@@ -32,6 +32,11 @@ export default function TourDetailPage() {
   const [kpForm, setKpForm] = useState({ name: '', description: '' });
   const [kpImage, setKpImage] = useState<File | null>(null);
 
+  const [editingKP, setEditingKP] = useState<KeyPoint | null>(null);
+  const [editLatLng, setEditLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '' });
+  const [editImage, setEditImage] = useState<File | null>(null);
+
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', visitDate: '' });
   const [reviewImages, setReviewImages] = useState<File[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -44,8 +49,46 @@ export default function TourDetailPage() {
   }, [id]);
 
   function handleMapClick(lat: number, lng: number) {
-    if (!addingKP) return;
-    setPendingLatLng({ lat, lng });
+    if (editingKP) {
+      setEditLatLng({ lat, lng });
+    } else if (addingKP) {
+      setPendingLatLng({ lat, lng });
+    }
+  }
+
+  function startEditKP(kp: KeyPoint) {
+    setEditingKP(kp);
+    setEditLatLng({ lat: kp.latitude, lng: kp.longitude });
+    setEditForm({ name: kp.name, description: kp.description || '' });
+    setEditImage(null);
+    setAddingKP(false);
+    setPendingLatLng(null);
+  }
+
+  function cancelEditKP() {
+    setEditingKP(null);
+    setEditLatLng(null);
+    setEditForm({ name: '', description: '' });
+    setEditImage(null);
+  }
+
+  async function submitEditKP(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingKP || !editLatLng) return;
+    try {
+      const data = new FormData();
+      data.append('name', editForm.name);
+      data.append('description', editForm.description);
+      data.append('latitude', String(editLatLng.lat));
+      data.append('longitude', String(editLatLng.lng));
+      if (editImage) data.append('image', editImage);
+
+      const res = await toursClient.put(`/api/tours/${id}/keypoints/${editingKP.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setKeyPoints(kp => kp.map(k => k.id === editingKP.id ? res.data : k));
+      cancelEditKP();
+    } catch { setError('Failed to update key point'); }
   }
 
   async function submitKeyPoint(e: React.FormEvent) {
@@ -139,10 +182,15 @@ export default function TourDetailPage() {
             Click on the map to select a location for the key point.
           </p>
         )}
+        {editingKP && (
+          <p style={{ fontSize: 13, color: '#e67e22', marginBottom: 8 }}>
+            Editing "{editingKP.name}" — click on the map to change the location.
+          </p>
+        )}
 
         <MapContainer center={mapCenter} zoom={13} style={{ height: 350, borderRadius: 8, marginBottom: 12 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {addingKP && <MapClickHandler onMapClick={handleMapClick} />}
+          {(addingKP || editingKP) && <MapClickHandler onMapClick={handleMapClick} />}
           {keyPoints.map(kp => (
             <Marker key={kp.id} position={[kp.latitude, kp.longitude]}>
               <Popup>
@@ -150,10 +198,16 @@ export default function TourDetailPage() {
                 {kp.description}<br />
                 {kp.imageUrl && <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100 }} />}
                 {isAuthor && (
-                  <button onClick={() => deleteKeyPoint(kp.id)}
-                    style={{ marginTop: 6, background: '#dc3545', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
-                    Delete
-                  </button>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                    <button onClick={() => startEditKP(kp)}
+                      style={{ background: '#f39c12', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteKeyPoint(kp.id)}
+                      style={{ background: '#dc3545', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
+                      Delete
+                    </button>
+                  </div>
                 )}
               </Popup>
             </Marker>
@@ -161,6 +215,11 @@ export default function TourDetailPage() {
           {pendingLatLng && (
             <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}>
               <Popup>New key point here</Popup>
+            </Marker>
+          )}
+          {editingKP && editLatLng && (
+            <Marker position={[editLatLng.lat, editLatLng.lng]}>
+              <Popup>Updated position</Popup>
             </Marker>
           )}
         </MapContainer>
@@ -184,6 +243,31 @@ export default function TourDetailPage() {
                 onChange={e => setKpImage(e.target.files?.[0] || null)} />
             </div>
             <button className="btn-primary" type="submit">Save Key Point</button>
+          </form>
+        )}
+
+        {editingKP && (
+          <form onSubmit={submitEditKP} style={{ background: '#fff8f0', border: '1px solid #f39c12', padding: 16, borderRadius: 8 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#e67e22', marginBottom: 8 }}>
+              Editing key point · Position: {editLatLng?.lat.toFixed(5)}, {editLatLng?.lng.toFixed(5)}
+            </p>
+            <div className="form-group">
+              <label>Name</label>
+              <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label>New Image (optional)</label>
+              <input type="file" accept="image/*" style={{ padding: 4 }}
+                onChange={e => setEditImage(e.target.files?.[0] || null)} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-primary" type="submit">Save Changes</button>
+              <button className="btn-secondary" type="button" onClick={cancelEditKP}>Cancel</button>
+            </div>
           </form>
         )}
       </div>
