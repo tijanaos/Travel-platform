@@ -65,13 +65,13 @@ app.use('/api/blogs', (req, res, next) => {
     }
   })(req, res, next);
 });
-app.use('/api/follow',           makeProxy(FOLLOWER_URL,     '/api/follow'));
+app.use('/api/follow',           makeProxy(FOLLOWER_URL,     '/follow'));
 app.use('/api/tourist-position', makeProxy(TOURS_URL,        '/api/tourist-position'));
 app.use('/api/tours',            makeProxy(TOURS_URL,        '/api/tours'));
-app.use('/api/feed',            makeProxy(FOLLOWER_URL, '/api/feed'));
-app.use('/api/recommendations', makeProxy(FOLLOWER_URL, '/api/recommendations'));
-app.use('/api/discover',        makeProxy(FOLLOWER_URL, '/api/discover'));
-app.use('/api/following',       makeProxy(FOLLOWER_URL, '/api/following'));
+app.use('/api/feed',            makeProxy(FOLLOWER_URL, '/feed'));
+app.use('/api/recommendations', makeProxy(FOLLOWER_URL, '/recommendations'));
+app.use('/api/discover',        makeProxy(FOLLOWER_URL, '/discover'));
+app.use('/api/following',       makeProxy(FOLLOWER_URL, '/following'));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'gateway' }));
 

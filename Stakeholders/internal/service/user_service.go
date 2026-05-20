@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/tijanaos/Stakeholders/internal/client"
 	"github.com/tijanaos/Stakeholders/internal/domain"
 	"github.com/tijanaos/Stakeholders/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -12,12 +13,13 @@ import (
 )
 
 type UserService struct {
-	repo      *repository.UserRepository
-	jwtSecret string
+	repo           *repository.UserRepository
+	jwtSecret      string
+	followerClient *client.FollowerClient
 }
 
-func NewUserService(repo *repository.UserRepository, jwtSecret string) *UserService {
-	return &UserService{repo: repo, jwtSecret: jwtSecret}
+func NewUserService(repo *repository.UserRepository, jwtSecret string, followerClient *client.FollowerClient) *UserService {
+	return &UserService{repo: repo, jwtSecret: jwtSecret, followerClient: followerClient}
 }
 
 func (s *UserService) Register(username, password, email string, role domain.Role) (*domain.User, error) {
@@ -56,6 +58,8 @@ func (s *UserService) Register(username, password, email string, role domain.Rol
 	if err := s.repo.Create(user); err != nil {
 		return nil, err
 	}
+
+	s.followerClient.RegisterUser(user.ID)
 
 	return user, nil
 }

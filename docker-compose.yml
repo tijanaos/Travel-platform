@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: stakeholders
       SERVER_PORT: 8080
+      FOLLOWER_URL: http://follower-service:8083
     ports:
       - "8080:8080"
     depends_on:
