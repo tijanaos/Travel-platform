@@ -46,6 +46,15 @@ public class Tour {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column
+    private Double lengthKm;
+
+    @Column
+    private LocalDateTime publishedAt;
+
+    @Column
+    private LocalDateTime archivedAt;
+
     public enum Difficulty {
         EASY, MEDIUM, HARD
     }
