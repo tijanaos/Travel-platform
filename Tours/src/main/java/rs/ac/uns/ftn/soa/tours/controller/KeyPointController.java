@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import rs.ac.uns.ftn.soa.tours.model.KeyPoint;
+import rs.ac.uns.ftn.soa.tours.model.Tour;
 import rs.ac.uns.ftn.soa.tours.service.KeyPointService;
+import rs.ac.uns.ftn.soa.tours.service.TourService;
 
 import java.io.IOException;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.List;
 public class KeyPointController {
 
     private final KeyPointService keyPointService;
+    private final TourService tourService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addKeyPoint(
@@ -47,8 +50,22 @@ public class KeyPointController {
     }
 
     @GetMapping
-    public ResponseEntity<List<KeyPoint>> getKeyPoints(@PathVariable Long tourId) {
-        return ResponseEntity.ok(keyPointService.getKeyPointsForTour(tourId));
+    public ResponseEntity<List<KeyPoint>> getKeyPoints(@PathVariable Long tourId,
+                                                       HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        String role = (String) request.getAttribute("role");
+
+        List<KeyPoint> all = keyPointService.getKeyPointsForTour(tourId);
+
+        try {
+            Tour tour = tourService.getTourById(tourId);
+            boolean isAuthor = userId != null && userId.equals(tour.getAuthorId());
+            if (!isAuthor && all.size() > 1) {
+                return ResponseEntity.ok(List.of(all.get(0)));
+            }
+        } catch (RuntimeException ignored) {}
+
+        return ResponseEntity.ok(all);
     }
 
     @PutMapping(value = "/{keyPointId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
