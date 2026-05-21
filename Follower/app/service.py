@@ -49,3 +49,13 @@ class FollowerService:
         self.repo.ensure_user_exists(user_id)
         following = self.repo.get_following(user_id)
         return get_blogs_by_author_ids(following, token)
+
+    def create_user_node(self, user_id: int) -> None:
+        self.repo.ensure_user_exists(user_id)
+
+    def sync_all_users(self) -> int:
+        from app.stakeholders_client import get_all_user_ids
+        user_ids = get_all_user_ids()
+        for uid in user_ids:
+            self.repo.ensure_user_exists(uid)
+        return len(user_ids)

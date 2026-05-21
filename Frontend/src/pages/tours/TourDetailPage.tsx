@@ -14,7 +14,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Marker koji se moze pomerati (drag) za edit
 const editIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
@@ -70,7 +69,6 @@ export default function TourDetailPage() {
         }
       })
       .catch(() => {
-        // Fallback na pravu liniju ako OSRM ne radi
         setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
       });
   }, [keyPoints]);
@@ -81,30 +79,49 @@ export default function TourDetailPage() {
     toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => { });
   }, [id]);
 
-  // Odredjuje sta se desava na klik mape
   function handleMapClick(lat: number, lng: number) {
-    if (addingKP) setPendingLatLng({ lat, lng });
-    else if (editingKP) setEditLatLng({ lat, lng });
+    if (editingKP) {
+      setEditLatLng({ lat, lng });
+    } else if (addingKP) {
+      setPendingLatLng({ lat, lng });
+    }
   }
 
-  // Pokrece edit mod za određeni key point
   function startEditKP(kp: KeyPoint) {
     setEditingKP(kp);
-    setEditLatLng({ lat: kp.latitude, lng: kp.longitude }); // trenutna pozicija kao početna
+    setEditLatLng({ lat: kp.latitude, lng: kp.longitude });
     setEditForm({ name: kp.name, description: kp.description || '' });
     setEditImage(null);
-    setAddingKP(false); // iskljuci add mod ako je bio aktivan
+    setAddingKP(false);
     setPendingLatLng(null);
   }
 
-  function cancelEdit() {
+  function cancelEditKP() {
     setEditingKP(null);
     setEditLatLng(null);
     setEditForm({ name: '', description: '' });
     setEditImage(null);
   }
 
-  // --- SUBMIT ADD ---
+  async function submitEditKP(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingKP || !editLatLng) return;
+    try {
+      const data = new FormData();
+      data.append('name', editForm.name);
+      data.append('description', editForm.description);
+      data.append('latitude', String(editLatLng.lat));
+      data.append('longitude', String(editLatLng.lng));
+      if (editImage) data.append('image', editImage);
+
+      const res = await toursClient.put(`/api/tours/${id}/keypoints/${editingKP.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setKeyPoints(kp => kp.map(k => k.id === editingKP.id ? res.data : k));
+      cancelEditKP();
+    } catch { setError('Failed to update key point'); }
+  }
+
   async function submitKeyPoint(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingLatLng) return;
@@ -127,29 +144,6 @@ export default function TourDetailPage() {
     } catch { setError('Failed to add key point'); }
   }
 
-  // --- SUBMIT EDIT ---
-  async function submitEditKeyPoint(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingKP || !editLatLng) return;
-    try {
-      const data = new FormData();
-      data.append('name', editForm.name);
-      data.append('description', editForm.description);
-      data.append('latitude', String(editLatLng.lat));
-      data.append('longitude', String(editLatLng.lng));
-      if (editImage) data.append('image', editImage);
-
-      const res = await toursClient.put(
-        `/api/tours/${id}/keypoints/${editingKP.id}`,
-        data,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
-      setKeyPoints(kps => kps.map(kp => kp.id === editingKP.id ? res.data : kp));
-      cancelEdit();
-    } catch { setError('Failed to update key point'); }
-  }
-
-  // --- DELETE ---
   async function deleteKeyPoint(kpId: number) {
     try {
       await toursClient.delete(`/api/tours/${id}/keypoints/${kpId}`);
@@ -185,7 +179,6 @@ export default function TourDetailPage() {
     ? [keyPoints[0].latitude, keyPoints[0].longitude]
     : [44.8176, 20.4569];
 
-
   return (
     <div style={{ maxWidth: 800 }}>
       <div className="card" style={{ marginBottom: 20 }}>
@@ -219,7 +212,6 @@ export default function TourDetailPage() {
           )}
         </div>
 
-        {/* Instrukcije za korisnika */}
         {addingKP && !pendingLatLng && (
           <p style={{ fontSize: 13, color: '#1976d2', background: '#e3f2fd', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
             📍 Click on the map to select a location for the new key point.
@@ -234,15 +226,12 @@ export default function TourDetailPage() {
         <MapContainer center={mapCenter} zoom={13} style={{ height: 380, borderRadius: 8, marginBottom: 12 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          {/* Klik handler — aktivan samo kad je add ili edit mod */}
           {isMapInteractive && <MapClickHandler onMapClick={handleMapClick} />}
 
-          {/* Polyline — crta rutu ture */}
           {routeCoords.length > 1 && (
             <Polyline positions={routeCoords} color="#1976d2" weight={3} dashArray="6,4" />
           )}
 
-          {/* Postojeci key point markeri */}
           {keyPoints.map((kp, index) => (
             <Marker key={kp.id} position={[kp.latitude, kp.longitude]}>
               <Popup>
@@ -271,14 +260,12 @@ export default function TourDetailPage() {
             </Marker>
           ))}
 
-          {/* Privremeni marker za ADD */}
           {pendingLatLng && addingKP && (
             <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}>
               <Popup>New key point here</Popup>
             </Marker>
           )}
 
-          {/* Marker za EDIT — crveni, pokazuje novu poziciju */}
           {editingKP && editLatLng && (
             <Marker position={[editLatLng.lat, editLatLng.lng]} icon={editIcon}>
               <Popup>New position for: {editingKP.name}</Popup>
@@ -286,7 +273,6 @@ export default function TourDetailPage() {
           )}
         </MapContainer>
 
-        {/* Forma za ADD */}
         {pendingLatLng && addingKP && (
           <form onSubmit={submitKeyPoint} style={{ background: '#f0f7ff', padding: 16, borderRadius: 8, marginBottom: 12 }}>
             <p style={{ fontSize: 13, color: '#1976d2', marginBottom: 8 }}>
@@ -314,9 +300,8 @@ export default function TourDetailPage() {
           </form>
         )}
 
-        {/* Forma za EDIT */}
         {editingKP && (
-          <form onSubmit={submitEditKeyPoint} style={{ background: '#fff8f0', padding: 16, borderRadius: 8, border: '1px solid #ffcc80' }}>
+          <form onSubmit={submitEditKP} style={{ background: '#fff8f0', padding: 16, borderRadius: 8, border: '1px solid #ffcc80' }}>
             <h4 style={{ marginBottom: 12, color: '#e65100' }}>✏️ Edit Key Point</h4>
             <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
               {editLatLng
@@ -339,13 +324,13 @@ export default function TourDetailPage() {
             {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-primary" type="submit">Save Changes</button>
-              <button className="btn-secondary" type="button" onClick={cancelEdit}>Cancel</button>
+              <button className="btn-secondary" type="button" onClick={cancelEditKP}>Cancel</button>
             </div>
           </form>
         )}
       </div>
 
-      {/* Reviews Section — nepromenjeno */}
+      {/* Reviews Section */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3>Reviews ({reviews.length})</h3>

@@ -9,4 +9,4 @@ COPY . .
 
 RUN mkdir -p uploads
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${SERVER_PORT:-8081}"]

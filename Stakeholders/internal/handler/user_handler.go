@@ -28,6 +28,8 @@ func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
 		api.PATCH("/:id/block", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.BlockUser)
 		api.PATCH("/:id/unblock", middleware.AuthMiddleware(h.jwtSecret), middleware.AdminMiddleware(), h.UnblockUser)
 	}
+	// Internal endpoint for inter-service use only — returns user IDs for graph sync
+	r.GET("/internal/users", h.GetAllUserIDs)
 }
 
 type registerRequest struct {
@@ -113,4 +115,17 @@ func (h *UserHandler) UnblockUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) GetAllUserIDs(c *gin.Context) {
+	users, err := h.service.GetAllUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
+		return
+	}
+	ids := make([]int, len(users))
+	for i, u := range users {
+		ids[i] = int(u.ID)
+	}
+	c.JSON(http.StatusOK, ids)
 }

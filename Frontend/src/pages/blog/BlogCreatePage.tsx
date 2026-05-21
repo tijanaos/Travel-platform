@@ -17,7 +17,7 @@ export default function BlogCreatePage() {
       data.append('description', form.description);
       images.forEach(img => data.append('images', img));
 
-      const res = await blogClient.post('/blogs', data, {
+      const res = await blogClient.post('/api/blogs', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       navigate(`/blogs/${res.data.id}`);

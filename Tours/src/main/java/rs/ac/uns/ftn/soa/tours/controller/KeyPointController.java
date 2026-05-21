@@ -51,6 +51,33 @@ public class KeyPointController {
         return ResponseEntity.ok(keyPointService.getKeyPointsForTour(tourId));
     }
 
+    @PutMapping(value = "/{keyPointId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateKeyPoint(
+            @PathVariable Long tourId,
+            @PathVariable Long keyPointId,
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam Double latitude,
+            @RequestParam Double longitude,
+            @RequestParam(required = false) MultipartFile image,
+            HttpServletRequest request) {
+
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        try {
+            KeyPoint kp = keyPointService.updateKeyPoint(keyPointId, name, description,
+                    latitude, longitude, image, userId);
+            return ResponseEntity.ok(kp);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Image upload failed");
+        }
+    }
+
     @DeleteMapping("/{keyPointId}")
     public ResponseEntity<?> deleteKeyPoint(@PathVariable Long tourId,
                                             @PathVariable Long keyPointId,

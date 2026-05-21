@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: stakeholders
       SERVER_PORT: 8080
+      FOLLOWER_URL: http://follower-service:8083
     ports:
       - "8080:8080"
     depends_on:
@@ -41,14 +42,17 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
       - "5050:80"
     networks:
       - travel-network
     depends_on:
       - stakeholders-db
+      - tours-db
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
 
   blog-db:
     image: mongo:7
@@ -74,11 +78,26 @@ services:
       MONGO_URI: mongodb://blog-db:27017
       MONGO_DB: blog
       SERVER_PORT: 8081
+      BASE_URL: http://localhost:8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
     ports:
       - "8081:8081"
     volumes:
       - ./Blog/uploads:/app/uploads
+    depends_on:
+      blog-db:
+        condition: service_healthy
+    networks:
+      - travel-network
+
+  mongo-express:
+    image: mongo-express:1.0.2-20
+    environment:
+      ME_CONFIG_MONGODB_SERVER: blog-db
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH: false
+    ports:
+      - "8086:8081"
     depends_on:
       blog-db:
         condition: service_healthy
@@ -163,6 +182,26 @@ services:
         condition: service_started
       blog-service:
         condition: service_started
+    networks:
+      - travel-network
+
+  gateway:
+    build:
+      context: ./Gateway
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8084
+      STAKEHOLDERS_URL: http://stakeholders-service:8080
+      BLOG_URL: http://blog-service:8081
+      TOURS_URL: http://tours-service:8082
+      FOLLOWER_URL: http://follower-service:8083
+    ports:
+      - "8084:8084"
+    depends_on:
+      - stakeholders-service
+      - blog-service
+      - tours-service
+      - follower-service
     networks:
       - travel-network
 

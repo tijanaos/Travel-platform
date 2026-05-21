@@ -95,3 +95,19 @@ def get_feed(
     token = authorization.removeprefix("Bearer ")
     user_id = get_user_id_from_token(token)
     return service.get_feed(user_id, token)
+
+
+# Called by Stakeholders after registration — no auth needed (internal service-to-service)
+@router.post("/users/{user_id}", status_code=204)
+def register_user_node(
+    user_id: int,
+    service: FollowerService = Depends(get_service),
+):
+    service.create_user_node(user_id)
+
+
+# Admin/developer endpoint to backfill all existing users into Neo4j
+@router.post("/sync-users", status_code=200)
+def sync_users(service: FollowerService = Depends(get_service)):
+    count = service.sync_all_users()
+    return {"synced": count}

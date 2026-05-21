@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tijanaos/Stakeholders/config"
+	"github.com/tijanaos/Stakeholders/internal/client"
 	"github.com/tijanaos/Stakeholders/internal/domain"
 	"github.com/tijanaos/Stakeholders/internal/handler"
 	"github.com/tijanaos/Stakeholders/internal/repository"
@@ -25,8 +26,10 @@ func main() {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
+	followerClient := client.NewFollowerClient(cfg.FollowerURL)
+
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo, cfg.JWTSecret)
+	userService := service.NewUserService(userRepo, cfg.JWTSecret, followerClient)
 	userHandler := handler.NewUserHandler(userService, cfg.JWTSecret)
 	authHandler := handler.NewAuthHandler(userService, cfg.JWTSecret)
 

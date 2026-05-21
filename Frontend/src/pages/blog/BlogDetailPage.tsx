@@ -16,22 +16,22 @@ export default function BlogDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    blogClient.get(`/blogs/${id}`).then(res => {
+    blogClient.get(`/api/blogs/${id}`).then(res => {
       setBlog(res.data);
       setLikedByMe(res.data.liked_by_me ?? false);
     });
-    blogClient.get(`/blogs/${id}/comments`).then(res => setComments(res.data)).catch(() => {});
+    blogClient.get(`/api/blogs/${id}/comments`).then(res => setComments(res.data)).catch(() => {});
   }, [id]);
 
   async function toggleLike() {
     if (!isAuthenticated || !blog) return;
     try {
       if (likedByMe) {
-        await blogClient.delete(`/blogs/${id}/like`);
+        await blogClient.delete(`/api/blogs/${id}/like`);
         setBlog(b => b ? { ...b, likes_count: b.likes_count - 1 } : b);
         setLikedByMe(false);
       } else {
-        await blogClient.post(`/blogs/${id}/like`);
+        await blogClient.post(`/api/blogs/${id}/like`);
         setBlog(b => b ? { ...b, likes_count: b.likes_count + 1 } : b);
         setLikedByMe(true);
       }
@@ -42,7 +42,7 @@ export default function BlogDetailPage() {
     e.preventDefault();
     if (!commentText.trim()) return;
     try {
-      const res = await blogClient.post(`/blogs/${id}/comments`, { text: commentText });
+      const res = await blogClient.post(`/api/blogs/${id}/comments`, { text: commentText });
       setComments(c => [...c, res.data]);
       setCommentText('');
     } catch { setError('Failed to post comment'); }
@@ -50,7 +50,7 @@ export default function BlogDetailPage() {
 
   async function saveEdit(commentId: string, text: string) {
     try {
-      const res = await blogClient.put(`/blogs/${id}/comments/${commentId}`, { text });
+      const res = await blogClient.put(`/api/blogs/${id}/comments/${commentId}`, { text });
       setComments(c => c.map(cm => cm.id === commentId ? res.data : cm));
       setEditingComment(null);
     } catch { setError('Failed to update comment'); }
@@ -58,7 +58,7 @@ export default function BlogDetailPage() {
 
   async function deleteComment(commentId: string) {
     try {
-      await blogClient.delete(`/blogs/${id}/comments/${commentId}`);
+      await blogClient.delete(`/api/blogs/${id}/comments/${commentId}`);
       setComments(c => c.filter(cm => cm.id !== commentId));
     } catch { setError('Failed to delete comment'); }
   }
