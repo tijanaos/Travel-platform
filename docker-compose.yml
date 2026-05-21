@@ -16,6 +16,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   stakeholders-service:
     build:
@@ -36,8 +42,16 @@ services:
     depends_on:
       stakeholders-db:
         condition: service_healthy
+      fluent-bit:
+        condition: service_started
     networks:
       - travel-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   pgadmin:
     image: dpage/pgadmin4
@@ -71,6 +85,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   blog-service:
     build:
@@ -89,8 +109,16 @@ services:
     depends_on:
       blog-db:
         condition: service_healthy
+      fluent-bit:
+        condition: service_started
     networks:
       - travel-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   mongo-express:
     image: mongo-express:1.0.2-20
@@ -123,6 +151,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   tours-service:
     build:
@@ -147,8 +181,16 @@ services:
     depends_on:
       tours-db:
         condition: service_healthy
+      fluent-bit:
+        condition: service_started
     networks:
       - travel-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   follower-db:
     image: neo4j:5
@@ -188,8 +230,16 @@ services:
         condition: service_started
       blog-service:
         condition: service_started
+      fluent-bit:
+        condition: service_started
     networks:
       - travel-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
 
   gateway:
     build:
@@ -209,6 +259,55 @@ services:
       - blog-service
       - tours-service
       - follower-service
+      - fluent-bit
+    networks:
+      - travel-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: "{{.Name}}"
+        fluentd-async: "true"
+
+  # ── Observability stack ──────────────────────────────────────────────────────
+
+  loki:
+    image: grafana/loki:2.9.4
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./logging/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - travel-network
+
+  fluent-bit:
+    image: fluent/fluent-bit:2.2
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./logging/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./logging/parsers.conf:/fluent-bit/etc/parsers.conf
+    depends_on:
+      - loki
+    networks:
+      - travel-network
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./logging/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
     networks:
       - travel-network
 
@@ -218,6 +317,8 @@ volumes:
   tours-db-data:
   follower-db-data:
   pgadmin-data:
+  loki-data:
+  grafana-data:
 
 networks:
   travel-network:
