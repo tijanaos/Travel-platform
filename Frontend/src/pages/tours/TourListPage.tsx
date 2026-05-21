@@ -1,19 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toursClient } from '../../api/client';
-import { Tour } from '../../types';
+import { Tour, TransportTime } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 const difficultyColor = { EASY: '#27ae60', MEDIUM: '#f39c12', HARD: '#e74c3c' };
+const transportLabel: Record<string, string> = { WALKING: 'Peške', BICYCLE: 'Bicikl', CAR: 'Automobil' };
 
 export default function TourListPage() {
   const [tours, setTours] = useState<Tour[]>([]);
+  const [transportTimes, setTransportTimes] = useState<Record<number, TransportTime[]>>({});
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
   useEffect(() => {
     toursClient.get('/api/tours')
-      .then(res => setTours(res.data))
+      .then(async res => {
+        const fetched: Tour[] = res.data;
+        setTours(fetched);
+        const ttMap: Record<number, TransportTime[]> = {};
+        await Promise.all(fetched.map(t =>
+          toursClient.get(`/api/tours/${t.id}/transport-times`)
+            .then(r => { ttMap[t.id] = r.data; })
+            .catch(() => { ttMap[t.id] = []; })
+        ));
+        setTransportTimes(ttMap);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -47,8 +59,18 @@ export default function TourListPage() {
                   </span>
                 </div>
                 <p style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{tour.description?.substring(0, 120)}</p>
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {tour.lengthKm != null && (
+                    <span style={{ fontSize: 12, color: '#555' }}>{tour.lengthKm} km</span>
+                  )}
+                  {(transportTimes[tour.id] ?? []).map(tt => (
+                    <span key={tt.id} style={{ fontSize: 12, background: '#f0f4ff', color: '#3a3a6e', padding: '2px 8px', borderRadius: 12 }}>
+                      {transportLabel[tt.type]}: {tt.durationMinutes} min
+                    </span>
+                  ))}
+                </div>
                 {tour.tags?.length > 0 && (
-                  <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {tour.tags.map(tag => (
                       <span key={tag} style={{ fontSize: 12, background: '#e8f0fe',
                         color: '#1a1a2e', padding: '2px 8px', borderRadius: 12 }}>{tag}</span>

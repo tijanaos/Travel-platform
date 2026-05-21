@@ -48,7 +48,9 @@ public class KeyPointService {
             kp.setImageUrl(saveImage(image));
         }
 
-        return keyPointRepository.save(kp);
+        KeyPoint saved = keyPointRepository.save(kp);
+        recalculateTourLength(tourId);
+        return saved;
     }
 
     public List<KeyPoint> getKeyPointsForTour(Long tourId) {
@@ -92,6 +94,41 @@ public class KeyPointService {
         }
 
         keyPointRepository.delete(kp);
+        recalculateTourLength(kp.getTourId());
+    }
+
+    private void recalculateTourLength(Long tourId) {
+        List<KeyPoint> points = keyPointRepository.findByTourId(tourId);
+        if (points.size() < 2) {
+            Tour tour = tourRepository.findById(tourId).orElse(null);
+            if (tour != null) {
+                tour.setLengthKm(null);
+                tourRepository.save(tour);
+            }
+            return;
+        }
+        double total = 0;
+        for (int i = 0; i < points.size() - 1; i++) {
+            total += haversineKm(
+                points.get(i).getLatitude(), points.get(i).getLongitude(),
+                points.get(i + 1).getLatitude(), points.get(i + 1).getLongitude()
+            );
+        }
+        Tour tour = tourRepository.findById(tourId).orElse(null);
+        if (tour != null) {
+            tour.setLengthKm(Math.round(total * 100.0) / 100.0);
+            tourRepository.save(tour);
+        }
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private String saveImage(MultipartFile file) throws IOException {

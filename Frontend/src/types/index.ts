@@ -40,6 +40,13 @@ export interface Comment {
   updated_at: string;
 }
 
+export interface TransportTime {
+  id: number;
+  tourId: number;
+  type: 'WALKING' | 'BICYCLE' | 'CAR';
+  durationMinutes: number;
+}
+
 export interface Tour {
   id: number;
   name: string;
@@ -50,6 +57,9 @@ export interface Tour {
   price: number;
   authorId: number;
   createdAt: string;
+  lengthKm?: number;
+  publishedAt?: string;
+  archivedAt?: string;
 }
 
 export interface KeyPoint {

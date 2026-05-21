@@ -6,8 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import rs.ac.uns.ftn.soa.tours.dto.AddTransportTimeRequest;
 import rs.ac.uns.ftn.soa.tours.dto.CreateTourRequest;
 import rs.ac.uns.ftn.soa.tours.model.Tour;
+import rs.ac.uns.ftn.soa.tours.model.TransportTime;
 import rs.ac.uns.ftn.soa.tours.service.TourService;
 
 import java.util.List;
@@ -35,8 +37,8 @@ public class TourController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Tour>> getAllTours() {
-        return ResponseEntity.ok(tourService.getAllTours());
+    public ResponseEntity<List<Tour>> getPublishedTours() {
+        return ResponseEntity.ok(tourService.getPublishedTours());
     }
 
     @GetMapping("/my")
@@ -53,6 +55,77 @@ public class TourController {
             return ResponseEntity.ok(tourService.getTourById(id));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<?> publishTour(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            return ResponseEntity.ok(tourService.publishTour(id, userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<?> archiveTour(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            return ResponseEntity.ok(tourService.archiveTour(id, userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/reactivate")
+    public ResponseEntity<?> reactivateTour(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            return ResponseEntity.ok(tourService.reactivateTour(id, userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/transport-times")
+    public ResponseEntity<List<TransportTime>> getTransportTimes(@PathVariable Long id) {
+        return ResponseEntity.ok(tourService.getTransportTimes(id));
+    }
+
+    @PostMapping("/{id}/transport-times")
+    public ResponseEntity<?> addTransportTime(@PathVariable Long id,
+                                              @RequestBody AddTransportTimeRequest request,
+                                              HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(tourService.addTransportTime(id, request, userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}/transport-times/{ttId}")
+    public ResponseEntity<?> deleteTransportTime(@PathVariable Long id,
+                                                 @PathVariable Long ttId,
+                                                 HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            tourService.deleteTransportTime(id, ttId, userId);
+            return ResponseEntity.noContent().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
 }
