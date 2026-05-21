@@ -141,4 +141,30 @@ public class KeyPointService {
 
         return "/uploads/" + filename;
     }
+
+    public KeyPoint updateKeyPoint(Long keyPointId, String name, String description,
+                               Double latitude, Double longitude,
+                               MultipartFile image, Long requesterId) throws IOException {
+
+    KeyPoint kp = keyPointRepository.findById(keyPointId)
+            .orElseThrow(() -> new RuntimeException("KeyPoint not found: " + keyPointId));
+
+    Tour tour = tourRepository.findById(kp.getTourId())
+            .orElseThrow(() -> new RuntimeException("Tour not found"));
+
+    if (!tour.getAuthorId().equals(requesterId)) {
+        throw new SecurityException("Only the tour author can update key points");
+    }
+
+    kp.setName(name);
+    kp.setDescription(description);
+    kp.setLatitude(latitude);
+    kp.setLongitude(longitude);
+
+    if (image != null && !image.isEmpty()) {
+        kp.setImageUrl(saveImage(image));
+    }
+
+    return keyPointRepository.save(kp);
+}
 }

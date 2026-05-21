@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { toursClient } from '../../api/client';
@@ -12,6 +12,12 @@ L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const editIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
 });
 
 const transportLabel: Record<TransportTime['type'], string> = {
@@ -39,11 +45,13 @@ export default function TourDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [transportTimes, setTransportTimes] = useState<TransportTime[]>([]);
 
+  // --- ADD KEY POINT state ---
   const [addingKP, setAddingKP] = useState(false);
   const [pendingLatLng, setPendingLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [kpForm, setKpForm] = useState({ name: '', description: '' });
   const [kpImage, setKpImage] = useState<File | null>(null);
 
+  // --- EDIT KEY POINT state ---
   const [editingKP, setEditingKP] = useState<KeyPoint | null>(null);
   const [editLatLng, setEditLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
@@ -59,6 +67,29 @@ export default function TourDetailPage() {
   });
   const [showTtForm, setShowTtForm] = useState(false);
   const [error, setError] = useState('');
+
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (keyPoints.length < 2) {
+      setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
+      return;
+    }
+    const coords = keyPoints.map(kp => `${kp.longitude},${kp.latitude}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.routes?.[0]) {
+          const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+            ([lng, lat]: [number, number]) => [lat, lng]
+          );
+          setRouteCoords(coords);
+        }
+      })
+      .catch(() => {
+        setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
+      });
+  }, [keyPoints]);
 
   useEffect(() => {
     toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
@@ -217,6 +248,8 @@ export default function TourDetailPage() {
 
   const isAuthor = user?.id === tour.authorId;
   const isTourist = user?.role === 'tourist';
+  const isMapInteractive = addingKP || !!editingKP;
+
   const mapCenter: [number, number] = keyPoints.length > 0
     ? [keyPoints[0].latitude, keyPoints[0].longitude]
     : [44.8176, 20.4569];
@@ -336,7 +369,7 @@ export default function TourDetailPage() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3>Ključne tačke ({keyPoints.length}{!isAuthor && tour.status !== 'DRAFT' ? ' — prikazana samo prva' : ''})</h3>
-          {isAuthor && (
+          {isAuthor && !editingKP && (
             <button className={addingKP ? 'btn-secondary' : 'btn-primary'}
               onClick={() => { setAddingKP(!addingKP); setPendingLatLng(null); }}>
               {addingKP ? 'Otkaži' : '+ Dodaj tačku'}
@@ -344,34 +377,42 @@ export default function TourDetailPage() {
           )}
         </div>
 
-        {addingKP && (
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+        {addingKP && !pendingLatLng && (
+          <p style={{ fontSize: 13, color: '#1976d2', background: '#e3f2fd', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
             Klikni na mapu da odabereš lokaciju ključne tačke.
           </p>
         )}
         {editingKP && (
-          <p style={{ fontSize: 13, color: '#e67e22', marginBottom: 8 }}>
-            Uređuješ "{editingKP.name}" — klikni na mapu da promeniš poziciju.
+          <p style={{ fontSize: 13, color: '#e65100', background: '#fff3e0', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
+            Uređuješ "<strong>{editingKP.name}</strong>" — klikni na mapu da promeniš poziciju.
           </p>
         )}
 
-        <MapContainer center={mapCenter} zoom={13} style={{ height: 350, borderRadius: 8, marginBottom: 12 }}>
+        <MapContainer center={mapCenter} zoom={13} style={{ height: 380, borderRadius: 8, marginBottom: 12 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {(addingKP || editingKP) && <MapClickHandler onMapClick={handleMapClick} />}
-          {keyPoints.map(kp => (
+
+          {isMapInteractive && <MapClickHandler onMapClick={handleMapClick} />}
+
+          {routeCoords.length > 1 && (
+            <Polyline positions={routeCoords} color="#1976d2" weight={3} dashArray="6,4" />
+          )}
+
+          {keyPoints.map((kp, index) => (
             <Marker key={kp.id} position={[kp.latitude, kp.longitude]}>
               <Popup>
-                <strong>{kp.name}</strong><br />
-                {kp.description}<br />
-                {kp.imageUrl && <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100 }} />}
+                <strong>{index + 1}. {kp.name}</strong><br />
+                {kp.description && <span style={{ color: '#555' }}>{kp.description}<br /></span>}
+                {kp.imageUrl && (
+                  <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100, marginTop: 4 }} />
+                )}
                 {isAuthor && (
-                  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                     <button onClick={() => startEditKP(kp)}
-                      style={{ background: '#f39c12', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
+                      style={{ background: '#1976d2', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                       Uredi
                     </button>
                     <button onClick={() => deleteKeyPoint(kp.id)}
-                      style={{ background: '#dc3545', color: 'white', border: 'none', padding: '2px 8px', borderRadius: 4, cursor: 'pointer' }}>
+                      style={{ background: '#dc3545', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                       Obriši
                     </button>
                   </div>
@@ -379,22 +420,28 @@ export default function TourDetailPage() {
               </Popup>
             </Marker>
           ))}
-          {pendingLatLng && (
+
+          {pendingLatLng && addingKP && (
             <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}>
               <Popup>Nova ključna tačka ovde</Popup>
             </Marker>
           )}
+
           {editingKP && editLatLng && (
-            <Marker position={[editLatLng.lat, editLatLng.lng]}>
-              <Popup>Nova pozicija</Popup>
+            <Marker position={[editLatLng.lat, editLatLng.lng]} icon={editIcon}>
+              <Popup>Nova pozicija za: {editingKP.name}</Popup>
             </Marker>
           )}
         </MapContainer>
 
         {pendingLatLng && addingKP && (
-          <form onSubmit={submitKeyPoint} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
-            <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+          <form onSubmit={submitKeyPoint} style={{ background: '#f0f7ff', padding: 16, borderRadius: 8, marginBottom: 12 }}>
+            <p style={{ fontSize: 13, color: '#1976d2', marginBottom: 8 }}>
               Odabrano: {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
+              <button type="button" onClick={() => setPendingLatLng(null)}
+                style={{ marginLeft: 10, fontSize: 11, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', padding: '1px 6px' }}>
+                Promeni
+              </button>
             </p>
             <div className="form-group">
               <label>Naziv</label>
@@ -409,14 +456,18 @@ export default function TourDetailPage() {
               <input type="file" accept="image/*" style={{ padding: 4 }}
                 onChange={e => setKpImage(e.target.files?.[0] || null)} />
             </div>
+            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
             <button className="btn-primary" type="submit">Sačuvaj tačku</button>
           </form>
         )}
 
         {editingKP && (
-          <form onSubmit={submitEditKP} style={{ background: '#fff8f0', border: '1px solid #f39c12', padding: 16, borderRadius: 8 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#e67e22', marginBottom: 8 }}>
-              Pozicija: {editLatLng?.lat.toFixed(5)}, {editLatLng?.lng.toFixed(5)}
+          <form onSubmit={submitEditKP} style={{ background: '#fff8f0', border: '1px solid #ffcc80', padding: 16, borderRadius: 8 }}>
+            <h4 style={{ marginBottom: 12, color: '#e65100' }}>Uredi ključnu tačku</h4>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+              {editLatLng
+                ? `Pozicija: ${editLatLng.lat.toFixed(5)}, ${editLatLng.lng.toFixed(5)}`
+                : 'Klikni na mapu da promeniš poziciju'}
             </p>
             <div className="form-group">
               <label>Naziv</label>
@@ -431,6 +482,7 @@ export default function TourDetailPage() {
               <input type="file" accept="image/*" style={{ padding: 4 }}
                 onChange={e => setEditImage(e.target.files?.[0] || null)} />
             </div>
+            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-primary" type="submit">Sačuvaj izmene</button>
               <button className="btn-secondary" type="button" onClick={cancelEditKP}>Otkaži</button>
@@ -447,7 +499,6 @@ export default function TourDetailPage() {
             <button className="btn-primary" onClick={() => setShowReviewForm(true)}>Ostavi recenziju</button>
           )}
         </div>
-
         {showReviewForm && (
           <form onSubmit={submitReview} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
             <div className="form-group">
@@ -477,7 +528,6 @@ export default function TourDetailPage() {
             </div>
           </form>
         )}
-
         {reviews.length === 0 ? (
           <p style={{ color: '#888', fontSize: 14 }}>Nema recenzija.</p>
         ) : (

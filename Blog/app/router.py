@@ -3,11 +3,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.auth_client import get_user_id_from_token, try_get_user_id_from_token
 from app.database import get_db
 from app.repository import BlogRepository
 from app.schemas import BlogCreate, BlogOut, CommentCreate, CommentUpdate, CommentOut
 from app.service import BlogService
+from app.auth_client import get_user_id_from_token, try_get_user_id_from_token, get_username_from_token
 
 router = APIRouter(prefix="/blogs", tags=["blogs"])
 
@@ -72,7 +72,8 @@ async def unlike_blog(blog_id: str, authorization: str = Header(...), service: B
 async def add_comment(blog_id: str, data: CommentCreate, authorization: str = Header(...), service: BlogService = Depends(get_service)):
     token = authorization.removeprefix("Bearer ")
     user_id = get_user_id_from_token(token)
-    return await service.add_comment(blog_id, user_id, data)
+    username = get_username_from_token(token)
+    return await service.add_comment(blog_id, user_id, username, data)
 
 
 @router.put("/{blog_id}/comments/{comment_id}", response_model=CommentOut)

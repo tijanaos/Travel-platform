@@ -35,6 +35,7 @@ export interface Comment {
   id: string;
   blog_id: string;
   user_id: number;
+  username: string;
   text: string;
   created_at: string;
   updated_at: string;
