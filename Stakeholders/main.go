@@ -7,6 +7,7 @@ import (
 	"github.com/tijanaos/Stakeholders/config"
 	"github.com/tijanaos/Stakeholders/internal/client"
 	"github.com/tijanaos/Stakeholders/internal/domain"
+	"github.com/tijanaos/Stakeholders/internal/grpcservice"
 	"github.com/tijanaos/Stakeholders/internal/handler"
 	"github.com/tijanaos/Stakeholders/internal/repository"
 	"github.com/tijanaos/Stakeholders/internal/service"
@@ -36,6 +37,8 @@ func main() {
 	profileRepo := repository.NewProfileRepository(db)
 	profileService := service.NewProfileService(profileRepo)
 	profileHandler := handler.NewProfileHandler(profileService, cfg.JWTSecret)
+
+	go grpcservice.StartGrpcServer(userRepo, cfg.GrpcPort)
 
 	r := gin.Default()
 

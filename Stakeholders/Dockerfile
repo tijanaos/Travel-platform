@@ -2,7 +2,7 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod ./
 RUN go mod download
 
 COPY . .
@@ -15,5 +15,6 @@ WORKDIR /app
 COPY --from=builder /app/stakeholders-service .
 
 EXPOSE 8080
+EXPOSE 9090
 
 CMD ["./stakeholders-service"]

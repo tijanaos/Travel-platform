@@ -12,6 +12,7 @@ type Config struct {
 	DBPassword  string
 	DBName      string
 	ServerPort  string
+	GrpcPort    string
 	JWTSecret   string
 	FollowerURL string
 }
@@ -24,6 +25,7 @@ func Load() *Config {
 		DBPassword:  getEnv("DB_PASSWORD", "postgres"),
 		DBName:      getEnv("DB_NAME", "stakeholders"),
 		ServerPort:  getEnv("SERVER_PORT", "8080"),
+		GrpcPort:    getEnv("GRPC_PORT", "9090"),
 		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		FollowerURL: getEnv("FOLLOWER_URL", "http://follower-service:8083"),
 	}

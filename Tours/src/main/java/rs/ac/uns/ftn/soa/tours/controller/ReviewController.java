@@ -8,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import rs.ac.uns.ftn.soa.tours.client.StakeholdersClient;
+import rs.ac.uns.ftn.soa.tours.grpc.StakeholdersGrpcClient;
 import rs.ac.uns.ftn.soa.tours.model.Review;
 import rs.ac.uns.ftn.soa.tours.service.ReviewService;
 
@@ -22,7 +22,7 @@ import java.util.List;
 public class ReviewController {
 
     private final ReviewService reviewService;
-    private final StakeholdersClient stakeholdersClient;
+    private final StakeholdersGrpcClient stakeholdersGrpcClient;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addReview(
@@ -36,8 +36,7 @@ public class ReviewController {
         Long touristId = (Long) request.getAttribute("userId");
         if (touristId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        String authHeader = request.getHeader("Authorization");
-        String touristUsername = stakeholdersClient.getUsernameById(touristId, authHeader);
+        String touristUsername = stakeholdersGrpcClient.getUsernameById(touristId);
 
         try {
             Review review = reviewService.addReview(tourId, rating, comment,
