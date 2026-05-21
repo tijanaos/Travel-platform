@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/tijanaos/Stakeholders/internal/grpcservice;grpcservice";
+option java_package = "rs.ac.uns.ftn.soa.tours.grpc";
+option java_outer_classname = "UserServiceProto";
+option java_multiple_files = true;
+
+service UserService {
+  rpc GetUsernameById(GetUsernameRequest) returns (GetUsernameResponse);
+}
+
+message GetUsernameRequest {
+  int64 user_id = 1;
+}
+
+message GetUsernameResponse {
+  string username = 1;
+}
