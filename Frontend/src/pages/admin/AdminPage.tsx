@@ -12,8 +12,8 @@ interface AdminUser {
 }
 
 const roleLabel: Record<string, string> = {
-  guide: 'Vodič',
-  tourist: 'Turista',
+  guide: 'Guide',
+  tourist: 'Tourist',
   administrator: 'Administrator',
 };
 
@@ -45,7 +45,7 @@ export default function AdminPage() {
       const res = await stakeholdersClient.get('/api/users');
       setUsers(res.data);
     } catch {
-      setError('Greška pri učitavanju korisnika.');
+      setError('Error loading users.');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function AdminPage() {
         )
       );
     } catch {
-      setError('Akcija nije uspela. Pokušaj ponovo.');
+      setError('Action failed. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -75,18 +75,18 @@ export default function AdminPage() {
   const blocked = nonAdmins.filter(u => u.is_blocked).length;
   const active = nonAdmins.filter(u => !u.is_blocked).length;
 
-  if (loading) return <p style={{ color: '#666', padding: 20 }}>Učitavanje...</p>;
+  if (loading) return <p style={{ color: '#666', padding: 20 }}>Loading...</p>;
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <h1 className="page-title">Upravljanje korisnicima</h1>
+      <h1 className="page-title">User Management</h1>
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Ukupno korisnika', value: nonAdmins.length, color: '#1a1a2e' },
-          { label: 'Aktivnih', value: active, color: '#27ae60' },
-          { label: 'Blokiranih', value: blocked, color: '#dc3545' },
+          { label: 'Total Users', value: nonAdmins.length, color: '#1a1a2e' },
+          { label: 'Active', value: active, color: '#27ae60' },
+          { label: 'Blocked', value: blocked, color: '#dc3545' },
         ].map(stat => (
           <div key={stat.label} className="card" style={{ flex: 1, textAlign: 'center', padding: '16px 12px' }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: stat.color }}>{stat.value}</div>
@@ -113,11 +113,11 @@ export default function AdminPage() {
           <thead>
             <tr style={{ borderBottom: '2px solid #eee' }}>
               <th style={th}>ID</th>
-              <th style={th}>Korisničko ime</th>
+              <th style={th}>Username</th>
               <th style={th}>Email</th>
-              <th style={th}>Uloga</th>
+              <th style={th}>Role</th>
               <th style={th}>Status</th>
-              <th style={{ ...th, textAlign: 'right' }}>Akcija</th>
+              <th style={{ ...th, textAlign: 'right' }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -134,7 +134,7 @@ export default function AdminPage() {
                 </td>
                 <td style={td}>
                   <span style={{ ...statusBadge, background: '#f0f0f0', color: '#999' }}>
-                    Zaštićen
+                    Protected
                   </span>
                 </td>
                 <td style={{ ...td, textAlign: 'right' }}>
@@ -165,11 +165,11 @@ export default function AdminPage() {
                 <td style={td}>
                   {u.is_blocked ? (
                     <span style={{ ...statusBadge, background: '#feecec', color: '#dc3545' }}>
-                      Blokiran
+                      Blocked
                     </span>
                   ) : (
                     <span style={{ ...statusBadge, background: '#edfaf1', color: '#27ae60' }}>
-                      Aktivan
+                      Active
                     </span>
                   )}
                 </td>
@@ -191,8 +191,8 @@ export default function AdminPage() {
                     {actionLoading === u.id
                       ? '...'
                       : u.is_blocked
-                      ? 'Odblokiraj'
-                      : 'Blokiraj'}
+                        ? 'Unblock'
+                        : 'Block'}
                   </button>
                 </td>
               </tr>
@@ -202,7 +202,7 @@ export default function AdminPage() {
 
         {nonAdmins.length === 0 && !loading && (
           <p style={{ textAlign: 'center', color: '#aaa', padding: 20, fontSize: 14 }}>
-            Nema registrovanih korisnika.
+            No registered users.
           </p>
         )}
       </div>

@@ -29,6 +29,17 @@ def get_user_id_from_token(token: str) -> int:
     return response.json()["user_id"]
 
 
+def get_username_from_token(token: str) -> str:
+    url = f"{settings.stakeholders_url}/api/auth/validate"
+    try:
+        response = httpx.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=5.0)
+        if response.status_code == 200:
+            return response.json().get("username", "unknown")
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
 def try_get_user_id_from_token(token: str) -> int | None:
     try:
         return get_user_id_from_token(token)

@@ -61,7 +61,10 @@ func (h *AuthHandler) ValidateToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"user_id": int(userID)})
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  int(userID),
+		"username": claims["username"],
+	})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
