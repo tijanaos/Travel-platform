@@ -48,12 +48,12 @@ app.post('/api/tours', express.json(), (req, res) => {
   const authHeader = req.headers['authorization'] || '';
   const body = req.body || {};
 
-  // Extract userId from JWT payload (base64 decode middle segment)
+  // Extract user id from JWT payload (base64 decode middle segment)
   let authorId = 0;
   try {
     const token = authHeader.replace(/^Bearer\s+/i, '');
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    authorId = parseInt(payload.userId || payload.sub || '0', 10);
+    authorId = parseInt(payload.user_id || payload.userId || payload.sub || '0', 10);
   } catch (_) {}
 
   const grpcReq = {
@@ -96,14 +96,66 @@ function makeProxy(target, pathPrefix) {
     },
     proxyErrorHandler: (err, res, next) => {
       console.error(`[Gateway] Proxy error → ${target}${pathPrefix}: ${err.message}`);
+      if (res.headersSent) {
+        return next(err);
+      }
       res.status(502).json({ error: 'Bad Gateway', detail: err.message });
     }
   });
 }
 
-app.use('/api/auth',             makeProxy(STAKEHOLDERS_URL, '/api/auth'));
-app.use('/api/profile',          makeProxy(STAKEHOLDERS_URL, '/api/profile'));
-app.use('/api/users',            makeProxy(STAKEHOLDERS_URL, '/api/users'));
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function makeFetchProxy(target) {
+  return async (req, res) => {
+    try {
+      const url = new URL(req.originalUrl, target);
+      console.log(`[Gateway] Fetch proxying to ${url.toString()}`);
+
+      const headers = { ...req.headers };
+      delete headers.host;
+      delete headers.connection;
+      delete headers['content-length'];
+      delete headers['transfer-encoding'];
+      delete headers['accept-encoding'];
+      delete headers.expect;
+
+      const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+      const body = hasBody ? await readRequestBody(req) : undefined;
+
+      const upstream = await fetch(url, {
+        method: req.method,
+        headers,
+        body,
+      });
+
+      upstream.headers.forEach((value, key) => {
+        if (!['content-encoding', 'transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      });
+
+      const responseBody = Buffer.from(await upstream.arrayBuffer());
+      res.status(upstream.status).send(responseBody);
+    } catch (err) {
+      console.error(`[Gateway] Fetch proxy error -> ${target}: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Bad Gateway', detail: err.message });
+      }
+    }
+  };
+}
+
+app.use('/api/auth',             makeFetchProxy(STAKEHOLDERS_URL));
+app.use('/api/profile',          makeFetchProxy(STAKEHOLDERS_URL));
+app.use('/api/users',            makeFetchProxy(STAKEHOLDERS_URL));
 app.use('/api/blogs', (req, res, next) => {
   const suffix = req.url === '/' || req.url === '' ? '/' : req.url;
   return proxy(BLOG_URL, {
@@ -120,6 +172,9 @@ app.use('/api/blogs', (req, res, next) => {
     },
     proxyErrorHandler: (err, res, next) => {
       console.error(`[Gateway] Proxy error: ${err.message}`);
+      if (res.headersSent) {
+        return next(err);
+      }
       res.status(502).json({ error: 'Bad Gateway' });
     }
   })(req, res, next);

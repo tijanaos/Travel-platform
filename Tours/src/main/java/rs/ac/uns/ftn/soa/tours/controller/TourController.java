@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import rs.ac.uns.ftn.soa.tours.dto.AddTransportTimeRequest;
 import rs.ac.uns.ftn.soa.tours.dto.CreateTourRequest;
+import rs.ac.uns.ftn.soa.tours.dto.UpdateTourPriceRequest;
 import rs.ac.uns.ftn.soa.tours.model.Tour;
 import rs.ac.uns.ftn.soa.tours.model.TransportTime;
 import rs.ac.uns.ftn.soa.tours.service.TourService;
@@ -37,8 +38,10 @@ public class TourController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Tour>> getPublishedTours() {
-        return ResponseEntity.ok(tourService.getPublishedTours());
+    public ResponseEntity<List<Tour>> getPublishedTours(HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        String role = (String) httpRequest.getAttribute("role");
+        return ResponseEntity.ok(tourService.getVisibleTours(userId, role));
     }
 
     @GetMapping("/my")
@@ -50,11 +53,29 @@ public class TourController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Tour> getTour(@PathVariable Long id) {
+    public ResponseEntity<Tour> getTour(@PathVariable Long id, HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
         try {
-            return ResponseEntity.ok(tourService.getTourById(id));
+            return ResponseEntity.ok(tourService.getTourForViewer(id, userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.notFound().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PatchMapping("/{id}/price")
+    public ResponseEntity<?> updatePrice(@PathVariable Long id,
+                                         @Valid @RequestBody UpdateTourPriceRequest request,
+                                         HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            return ResponseEntity.ok(tourService.updatePrice(id, request.price(), userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -98,8 +119,17 @@ public class TourController {
     }
 
     @GetMapping("/{id}/transport-times")
-    public ResponseEntity<List<TransportTime>> getTransportTimes(@PathVariable Long id) {
-        return ResponseEntity.ok(tourService.getTransportTimes(id));
+    public ResponseEntity<List<TransportTime>> getTransportTimes(@PathVariable Long id,
+                                                                 HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        try {
+            tourService.getTourForViewer(id, userId);
+            return ResponseEntity.ok(tourService.getTransportTimes(id));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping("/{id}/transport-times")

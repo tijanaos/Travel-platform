@@ -5,7 +5,7 @@ import { Tour, TransportTime } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 const difficultyColor = { EASY: '#27ae60', MEDIUM: '#f39c12', HARD: '#e74c3c' };
-const transportLabel: Record<string, string> = { WALKING: 'Peške', BICYCLE: 'Bicikl', CAR: 'Automobil' };
+const transportLabel: Record<string, string> = { WALKING: 'Walking', BICYCLE: 'Bicycle', CAR: 'Car' };
 
 export default function TourListPage() {
   const [tours, setTours] = useState<Tour[]>([]);
@@ -45,7 +45,11 @@ export default function TourListPage() {
         </div>
       </div>
       {tours.length === 0 ? (
-        <p style={{ color: '#666' }}>No tours available.</p>
+        <p style={{ color: '#666' }}>
+          {user?.role === 'guide'
+            ? 'No tours to show yet. Create a tour to start drafting it.'
+            : 'No published tours available.'}
+        </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {tours.map(tour => (
@@ -60,6 +64,11 @@ export default function TourListPage() {
                 </div>
                 <p style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{tour.description?.substring(0, 120)}</p>
                 <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {tour.status !== 'PUBLISHED' && (
+                    <span style={{ fontSize: 12, background: '#fff7e6', color: '#9a6700', padding: '2px 8px', borderRadius: 12 }}>
+                      {tour.status}
+                    </span>
+                  )}
                   {tour.lengthKm != null && (
                     <span style={{ fontSize: 12, color: '#555' }}>{tour.lengthKm} km</span>
                   )}

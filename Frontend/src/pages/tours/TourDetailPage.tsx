@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { toursClient } from '../../api/client';
-import { Tour, KeyPoint, Review, TransportTime } from '../../types';
+import { KeyPoint, Review, Tour, TransportTime } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -17,14 +17,16 @@ L.Icon.Default.mergeOptions({
 const editIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
-const transportLabel: Record<TransportTime['type'], string> = {
-  WALKING: 'Peške',
-  BICYCLE: 'Bicikl',
-  CAR: 'Automobil',
-};
+const transportTypes: Array<{ type: TransportTime['type']; label: string }> = [
+  { type: 'WALKING', label: 'Walking' },
+  { type: 'BICYCLE', label: 'Bicycle' },
+  { type: 'CAR', label: 'Car' },
+];
 
 const statusColor: Record<Tour['status'], string> = {
   DRAFT: '#888',
@@ -44,31 +46,31 @@ export default function TourDetailPage() {
   const [keyPoints, setKeyPoints] = useState<KeyPoint[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [transportTimes, setTransportTimes] = useState<TransportTime[]>([]);
-
-  // --- ADD KEY POINT state ---
   const [addingKP, setAddingKP] = useState(false);
   const [pendingLatLng, setPendingLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [kpForm, setKpForm] = useState({ name: '', description: '' });
   const [kpImage, setKpImage] = useState<File | null>(null);
-
-  // --- EDIT KEY POINT state ---
   const [editingKP, setEditingKP] = useState<KeyPoint | null>(null);
   const [editLatLng, setEditLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [editImage, setEditImage] = useState<File | null>(null);
-
+  const [timeDrafts, setTimeDrafts] = useState<Record<TransportTime['type'], string>>({
+    WALKING: '',
+    BICYCLE: '',
+    CAR: '',
+  });
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', visitDate: '' });
   const [reviewImages, setReviewImages] = useState<File[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
-
-  const [ttForm, setTtForm] = useState<{ type: TransportTime['type']; durationMinutes: string }>({
-    type: 'WALKING',
-    durationMinutes: '',
-  });
-  const [showTtForm, setShowTtForm] = useState(false);
   const [error, setError] = useState('');
-
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
+    toursClient.get(`/api/tours/${id}/keypoints`).then(res => setKeyPoints(res.data));
+    toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => {});
+    toursClient.get(`/api/tours/${id}/transport-times`).then(res => setTransportTimes(res.data)).catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     if (keyPoints.length < 2) {
@@ -80,23 +82,23 @@ export default function TourDetailPage() {
       .then(res => res.json())
       .then(data => {
         if (data.routes?.[0]) {
-          const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+          setRouteCoords(data.routes[0].geometry.coordinates.map(
             ([lng, lat]: [number, number]) => [lat, lng]
-          );
-          setRouteCoords(coords);
+          ));
         }
       })
-      .catch(() => {
-        setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude]));
-      });
+      .catch(() => setRouteCoords(keyPoints.map(kp => [kp.latitude, kp.longitude])));
   }, [keyPoints]);
 
-  useEffect(() => {
-    toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
-    toursClient.get(`/api/tours/${id}/keypoints`).then(res => setKeyPoints(res.data));
-    toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => {});
-    toursClient.get(`/api/tours/${id}/transport-times`).then(res => setTransportTimes(res.data)).catch(() => {});
-  }, [id]);
+  if (!tour) return <p>Loading...</p>;
+
+  const isAuthor = user?.id === tour.authorId;
+  const isTourist = user?.role === 'tourist';
+  const isMapInteractive = addingKP || !!editingKP;
+  const existingTimeByType = Object.fromEntries(transportTimes.map(tt => [tt.type, tt])) as Partial<Record<TransportTime['type'], TransportTime>>;
+  const mapCenter: [number, number] = keyPoints.length > 0
+    ? [keyPoints[0].latitude, keyPoints[0].longitude]
+    : [44.8176, 20.4569];
 
   function handleMapClick(lat: number, lng: number) {
     if (editingKP) {
@@ -122,30 +124,15 @@ export default function TourDetailPage() {
     setEditImage(null);
   }
 
-  async function submitEditKP(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingKP || !editLatLng) return;
-    try {
-      const data = new FormData();
-      data.append('name', editForm.name);
-      data.append('description', editForm.description);
-      data.append('latitude', String(editLatLng.lat));
-      data.append('longitude', String(editLatLng.lng));
-      if (editImage) data.append('image', editImage);
-
-      const res = await toursClient.put(`/api/tours/${id}/keypoints/${editingKP.id}`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setKeyPoints(kp => kp.map(k => k.id === editingKP.id ? res.data : k));
-      const tourRes = await toursClient.get(`/api/tours/${id}`);
-      setTour(tourRes.data);
-      cancelEditKP();
-    } catch { setError('Failed to update key point'); }
+  async function refreshTour() {
+    const tourRes = await toursClient.get(`/api/tours/${id}`);
+    setTour(tourRes.data);
   }
 
   async function submitKeyPoint(e: React.FormEvent) {
     e.preventDefault();
     if (!pendingLatLng) return;
+    setError('');
     try {
       const data = new FormData();
       data.append('name', kpForm.name);
@@ -153,47 +140,74 @@ export default function TourDetailPage() {
       data.append('latitude', String(pendingLatLng.lat));
       data.append('longitude', String(pendingLatLng.lng));
       if (kpImage) data.append('image', kpImage);
-
       const res = await toursClient.post(`/api/tours/${id}/keypoints`, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setKeyPoints(kp => [...kp, res.data]);
-      const tourRes = await toursClient.get(`/api/tours/${id}`);
-      setTour(tourRes.data);
+      await refreshTour();
       setPendingLatLng(null);
       setKpForm({ name: '', description: '' });
       setKpImage(null);
       setAddingKP(false);
-    } catch { setError('Failed to add key point'); }
+    } catch {
+      setError('Failed to add key point');
+    }
+  }
+
+  async function submitEditKP(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingKP || !editLatLng) return;
+    setError('');
+    try {
+      const data = new FormData();
+      data.append('name', editForm.name);
+      data.append('description', editForm.description);
+      data.append('latitude', String(editLatLng.lat));
+      data.append('longitude', String(editLatLng.lng));
+      if (editImage) data.append('image', editImage);
+      const res = await toursClient.put(`/api/tours/${id}/keypoints/${editingKP.id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setKeyPoints(kp => kp.map(k => k.id === editingKP.id ? res.data : k));
+      await refreshTour();
+      cancelEditKP();
+    } catch {
+      setError('Failed to update key point');
+    }
   }
 
   async function deleteKeyPoint(kpId: number) {
+    setError('');
     try {
       await toursClient.delete(`/api/tours/${id}/keypoints/${kpId}`);
       setKeyPoints(kp => kp.filter(k => k.id !== kpId));
-      const tourRes = await toursClient.get(`/api/tours/${id}`);
-      setTour(tourRes.data);
-    } catch { setError('Failed to delete key point'); }
+      await refreshTour();
+    } catch {
+      setError('Failed to delete key point');
+    }
   }
 
-  async function submitTransportTime(e: React.FormEvent) {
-    e.preventDefault();
+  async function addTransportTime(type: TransportTime['type']) {
+    const duration = Number(timeDrafts[type]);
+    if (!duration || duration < 1) return;
+    setError('');
     try {
-      const res = await toursClient.post(`/api/tours/${id}/transport-times`, {
-        type: ttForm.type,
-        durationMinutes: Number(ttForm.durationMinutes),
-      });
-      setTransportTimes(tt => [...tt, res.data]);
-      setTtForm({ type: 'WALKING', durationMinutes: '' });
-      setShowTtForm(false);
-    } catch { setError('Failed to add transport time'); }
+      const res = await toursClient.post(`/api/tours/${id}/transport-times`, { type, durationMinutes: duration });
+      setTransportTimes(tt => [...tt.filter(t => t.type !== type), res.data]);
+      setTimeDrafts(drafts => ({ ...drafts, [type]: '' }));
+    } catch {
+      setError('Failed to add transport time');
+    }
   }
 
   async function deleteTransportTime(ttId: number) {
+    setError('');
     try {
       await toursClient.delete(`/api/tours/${id}/transport-times/${ttId}`);
       setTransportTimes(tt => tt.filter(t => t.id !== ttId));
-    } catch { setError('Failed to delete transport time'); }
+    } catch {
+      setError('Failed to delete transport time');
+    }
   }
 
   async function publishTour() {
@@ -228,50 +242,35 @@ export default function TourDetailPage() {
 
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
     try {
       const data = new FormData();
       data.append('rating', String(reviewForm.rating));
       data.append('comment', reviewForm.comment);
       data.append('visitDate', reviewForm.visitDate);
       reviewImages.forEach(img => data.append('images', img));
-
       const res = await toursClient.post(`/api/tours/${id}/reviews`, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setReviews(r => [...r, res.data]);
       setShowReviewForm(false);
       setReviewForm({ rating: 5, comment: '', visitDate: '' });
-    } catch { setError('Failed to submit review. You may have already reviewed this tour.'); }
+      setReviewImages([]);
+    } catch {
+      setError('Failed to submit review. You may have already reviewed this tour.');
+    }
   }
-
-  if (!tour) return <p>Loading...</p>;
-
-  const isAuthor = user?.id === tour.authorId;
-  const isTourist = user?.role === 'tourist';
-  const isMapInteractive = addingKP || !!editingKP;
-
-  const mapCenter: [number, number] = keyPoints.length > 0
-    ? [keyPoints[0].latitude, keyPoints[0].longitude]
-    : [44.8176, 20.4569];
 
   return (
     <div style={{ maxWidth: 800 }}>
-
-      {/* Tour Info */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <h2 style={{ marginBottom: 8 }}>{tour.name}</h2>
           {isAuthor && (
             <div style={{ display: 'flex', gap: 8 }}>
-              {tour.status === 'DRAFT' && (
-                <button className="btn-primary" onClick={publishTour}>Objavi turu</button>
-              )}
-              {tour.status === 'PUBLISHED' && (
-                <button className="btn-secondary" onClick={archiveTour}>Arhiviraj</button>
-              )}
-              {tour.status === 'ARCHIVED' && (
-                <button className="btn-primary" onClick={reactivateTour}>Reaktiviraj</button>
-              )}
+              {tour.status === 'DRAFT' && <button className="btn-primary" onClick={publishTour}>Publish Tour</button>}
+              {tour.status === 'PUBLISHED' && <button className="btn-secondary" onClick={archiveTour}>Archive</button>}
+              {tour.status === 'ARCHIVED' && <button className="btn-primary" onClick={reactivateTour}>Reactivate</button>}
             </div>
           )}
         </div>
@@ -281,20 +280,18 @@ export default function TourDetailPage() {
           <span style={{ fontSize: 13, padding: '2px 8px', borderRadius: 12, background: '#eee', color: statusColor[tour.status], fontWeight: 600 }}>
             {tour.status}
           </span>
-          {tour.lengthKm != null && (
-            <span style={{ fontSize: 13, color: '#555' }}>{tour.lengthKm} km</span>
-          )}
-          <span style={{ fontSize: 13, color: '#888' }}>Cena: ${tour.price}</span>
+          {tour.lengthKm != null && <span style={{ fontSize: 13, color: '#555' }}>{tour.lengthKm} km</span>}
+          <span style={{ fontSize: 13, color: '#888' }}>Price: ${tour.price}</span>
         </div>
 
         {tour.publishedAt && (
           <p style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-            Objavljeno: {new Date(tour.publishedAt).toLocaleString()}
+            Published: {new Date(tour.publishedAt).toLocaleString()}
           </p>
         )}
         {tour.archivedAt && (
           <p style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-            Arhivirano: {new Date(tour.archivedAt).toLocaleString()}
+            Archived: {new Date(tour.archivedAt).toLocaleString()}
           </p>
         )}
 
@@ -314,231 +311,185 @@ export default function TourDetailPage() {
         )}
       </div>
 
-      {/* Transport Times */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3>Vremena prolaska</h3>
-          {isAuthor && !showTtForm && (
-            <button className="btn-primary" onClick={() => setShowTtForm(true)}>+ Dodaj</button>
-          )}
-        </div>
-
-        {transportTimes.length === 0 ? (
-          <p style={{ color: '#888', fontSize: 14 }}>Nema definisanih vremena prolaska.</p>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {transportTimes.map(tt => (
-              <div key={tt.id} style={{ background: '#f0f4ff', border: '1px solid #d0d8ff', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>{transportLabel[tt.type]}</span>
-                <span style={{ fontSize: 13, color: '#555' }}>{tt.durationMinutes} min</span>
-                {isAuthor && (
-                  <button onClick={() => deleteTransportTime(tt.id)}
-                    style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
-                    ×
-                  </button>
+        <h3 style={{ marginBottom: 12 }}>Transport Times</h3>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {transportTypes.map(({ type, label }) => {
+            const existing = existingTimeByType[type];
+            return (
+              <div key={type} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <strong style={{ width: 90 }}>{label}</strong>
+                {existing ? (
+                  <>
+                    <span style={{ fontSize: 13, color: '#555' }}>{existing.durationMinutes} min</span>
+                    {isAuthor && <button className="btn-secondary" onClick={() => deleteTransportTime(existing.id)}>Remove</button>}
+                  </>
+                ) : isAuthor ? (
+                  <>
+                    <input type="number" min={1} placeholder="Minutes" value={timeDrafts[type]}
+                      onChange={e => setTimeDrafts(drafts => ({ ...drafts, [type]: e.target.value }))}
+                      style={{ width: 120 }} />
+                    <button className="btn-primary" onClick={() => addTransportTime(type)}>Add</button>
+                  </>
+                ) : (
+                  <span style={{ color: '#888', fontSize: 13 }}>Not defined</span>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-
-        {showTtForm && (
-          <form onSubmit={submitTransportTime} style={{ marginTop: 12, background: '#f9f9f9', padding: 12, borderRadius: 8, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label style={{ fontSize: 13 }}>Tip prevoza</label>
-              <select value={ttForm.type} onChange={e => setTtForm(f => ({ ...f, type: e.target.value as TransportTime['type'] }))}
-                style={{ padding: '6px 8px', borderRadius: 4, border: '1px solid #ccc' }}>
-                <option value="WALKING">Peške</option>
-                <option value="BICYCLE">Bicikl</option>
-                <option value="CAR">Automobil</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label style={{ fontSize: 13 }}>Trajanje (minuti)</label>
-              <input type="number" min={1} value={ttForm.durationMinutes}
-                onChange={e => setTtForm(f => ({ ...f, durationMinutes: e.target.value }))}
-                required style={{ width: 90 }} />
-            </div>
-            <button className="btn-primary" type="submit">Sačuvaj</button>
-            <button className="btn-secondary" type="button" onClick={() => setShowTtForm(false)}>Otkaži</button>
-          </form>
-        )}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Key Points */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3>Ključne tačke ({keyPoints.length}{!isAuthor && tour.status !== 'DRAFT' ? ' — prikazana samo prva' : ''})</h3>
+          <h3>Key Points ({keyPoints.length}{!isAuthor && tour.status !== 'DRAFT' ? ' - showing first point only' : ''})</h3>
           {isAuthor && !editingKP && (
             <button className={addingKP ? 'btn-secondary' : 'btn-primary'}
               onClick={() => { setAddingKP(!addingKP); setPendingLatLng(null); }}>
-              {addingKP ? 'Otkaži' : '+ Dodaj tačku'}
+              {addingKP ? 'Cancel' : '+ Add Point'}
             </button>
           )}
         </div>
 
         {addingKP && !pendingLatLng && (
           <p style={{ fontSize: 13, color: '#1976d2', background: '#e3f2fd', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
-            Klikni na mapu da odabereš lokaciju ključne tačke.
+            Click the map to choose the key point location.
           </p>
         )}
         {editingKP && (
           <p style={{ fontSize: 13, color: '#e65100', background: '#fff3e0', padding: '8px 12px', borderRadius: 6, marginBottom: 8 }}>
-            Uređuješ "<strong>{editingKP.name}</strong>" — klikni na mapu da promeniš poziciju.
+            Editing "{editingKP.name}". Click the map to change its position.
           </p>
         )}
 
         <MapContainer center={mapCenter} zoom={13} style={{ height: 380, borderRadius: 8, marginBottom: 12 }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
           {isMapInteractive && <MapClickHandler onMapClick={handleMapClick} />}
-
-          {routeCoords.length > 1 && (
-            <Polyline positions={routeCoords} color="#1976d2" weight={3} dashArray="6,4" />
-          )}
-
+          {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#1976d2" weight={3} dashArray="6,4" />}
           {keyPoints.map((kp, index) => (
             <Marker key={kp.id} position={[kp.latitude, kp.longitude]}>
               <Popup>
                 <strong>{index + 1}. {kp.name}</strong><br />
                 {kp.description && <span style={{ color: '#555' }}>{kp.description}<br /></span>}
-                {kp.imageUrl && (
-                  <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100, marginTop: 4 }} />
-                )}
+                {kp.imageUrl && <img src={`http://localhost:8082${kp.imageUrl}`} alt="" style={{ width: 100, marginTop: 4 }} />}
                 {isAuthor && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                     <button onClick={() => startEditKP(kp)}
                       style={{ background: '#1976d2', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
-                      Uredi
+                      Edit
                     </button>
                     <button onClick={() => deleteKeyPoint(kp.id)}
                       style={{ background: '#dc3545', color: 'white', border: 'none', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
-                      Obriši
+                      Delete
                     </button>
                   </div>
                 )}
               </Popup>
             </Marker>
           ))}
-
           {pendingLatLng && addingKP && (
-            <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}>
-              <Popup>Nova ključna tačka ovde</Popup>
-            </Marker>
+            <Marker position={[pendingLatLng.lat, pendingLatLng.lng]}><Popup>New key point location</Popup></Marker>
           )}
-
           {editingKP && editLatLng && (
-            <Marker position={[editLatLng.lat, editLatLng.lng]} icon={editIcon}>
-              <Popup>Nova pozicija za: {editingKP.name}</Popup>
-            </Marker>
+            <Marker position={[editLatLng.lat, editLatLng.lng]} icon={editIcon}><Popup>New position for {editingKP.name}</Popup></Marker>
           )}
         </MapContainer>
 
         {pendingLatLng && addingKP && (
           <form onSubmit={submitKeyPoint} style={{ background: '#f0f7ff', padding: 16, borderRadius: 8, marginBottom: 12 }}>
             <p style={{ fontSize: 13, color: '#1976d2', marginBottom: 8 }}>
-              Odabrano: {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
+              Selected: {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
               <button type="button" onClick={() => setPendingLatLng(null)}
                 style={{ marginLeft: 10, fontSize: 11, background: 'none', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', padding: '1px 6px' }}>
-                Promeni
+                Change
               </button>
             </p>
             <div className="form-group">
-              <label>Naziv</label>
+              <label>Name</label>
               <input value={kpForm.name} onChange={e => setKpForm(f => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="form-group">
-              <label>Opis</label>
+              <label>Description</label>
               <input value={kpForm.description} onChange={e => setKpForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label>Slika (opciono)</label>
-              <input type="file" accept="image/*" style={{ padding: 4 }}
-                onChange={e => setKpImage(e.target.files?.[0] || null)} />
+              <label>Image (optional)</label>
+              <input type="file" accept="image/*" style={{ padding: 4 }} onChange={e => setKpImage(e.target.files?.[0] || null)} />
             </div>
-            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
-            <button className="btn-primary" type="submit">Sačuvaj tačku</button>
+            <button className="btn-primary" type="submit">Save Point</button>
           </form>
         )}
 
         {editingKP && (
           <form onSubmit={submitEditKP} style={{ background: '#fff8f0', border: '1px solid #ffcc80', padding: 16, borderRadius: 8 }}>
-            <h4 style={{ marginBottom: 12, color: '#e65100' }}>Uredi ključnu tačku</h4>
+            <h4 style={{ marginBottom: 12, color: '#e65100' }}>Edit Key Point</h4>
             <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
-              {editLatLng
-                ? `Pozicija: ${editLatLng.lat.toFixed(5)}, ${editLatLng.lng.toFixed(5)}`
-                : 'Klikni na mapu da promeniš poziciju'}
+              {editLatLng ? `Position: ${editLatLng.lat.toFixed(5)}, ${editLatLng.lng.toFixed(5)}` : 'Click the map to change the position'}
             </p>
             <div className="form-group">
-              <label>Naziv</label>
+              <label>Name</label>
               <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="form-group">
-              <label>Opis</label>
+              <label>Description</label>
               <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label>Nova slika (opciono)</label>
-              <input type="file" accept="image/*" style={{ padding: 4 }}
-                onChange={e => setEditImage(e.target.files?.[0] || null)} />
+              <label>New image (optional)</label>
+              <input type="file" accept="image/*" style={{ padding: 4 }} onChange={e => setEditImage(e.target.files?.[0] || null)} />
             </div>
-            {error && <p style={{ color: 'red', fontSize: 13 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn-primary" type="submit">Sačuvaj izmene</button>
-              <button className="btn-secondary" type="button" onClick={cancelEditKP}>Otkaži</button>
+              <button className="btn-primary" type="submit">Save Changes</button>
+              <button className="btn-secondary" type="button" onClick={cancelEditKP}>Cancel</button>
             </div>
           </form>
         )}
       </div>
 
-      {/* Reviews */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3>Recenzije ({reviews.length})</h3>
-          {isTourist && !showReviewForm && (
-            <button className="btn-primary" onClick={() => setShowReviewForm(true)}>Ostavi recenziju</button>
-          )}
+          <h3>Reviews ({reviews.length})</h3>
+          {isTourist && !showReviewForm && <button className="btn-primary" onClick={() => setShowReviewForm(true)}>Leave a Review</button>}
         </div>
         {showReviewForm && (
           <form onSubmit={submitReview} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
             <div className="form-group">
-              <label>Ocena (1-5)</label>
+              <label>Rating (1-5)</label>
               <input type="number" min={1} max={5} value={reviewForm.rating}
                 onChange={e => setReviewForm(f => ({ ...f, rating: Number(e.target.value) }))} required />
             </div>
             <div className="form-group">
-              <label>Komentar</label>
+              <label>Comment</label>
               <textarea rows={3} value={reviewForm.comment}
                 onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))} style={{ resize: 'vertical' }} />
             </div>
             <div className="form-group">
-              <label>Datum posete</label>
+              <label>Visit Date</label>
               <input type="date" value={reviewForm.visitDate}
                 onChange={e => setReviewForm(f => ({ ...f, visitDate: e.target.value }))} required />
             </div>
             <div className="form-group">
-              <label>Slike (opciono)</label>
+              <label>Images (optional)</label>
               <input type="file" accept="image/*" multiple style={{ padding: 4 }}
                 onChange={e => setReviewImages(Array.from(e.target.files || []))} />
             </div>
-            {error && <p className="error" style={{ marginBottom: 8 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn-primary" type="submit">Pošalji recenziju</button>
-              <button className="btn-secondary" type="button" onClick={() => setShowReviewForm(false)}>Otkaži</button>
+              <button className="btn-primary" type="submit">Submit Review</button>
+              <button className="btn-secondary" type="button" onClick={() => setShowReviewForm(false)}>Cancel</button>
             </div>
           </form>
         )}
         {reviews.length === 0 ? (
-          <p style={{ color: '#888', fontSize: 14 }}>Nema recenzija.</p>
+          <p style={{ color: '#888', fontSize: 14 }}>No reviews yet.</p>
         ) : (
           reviews.map(r => (
             <div key={r.id} style={{ borderBottom: '1px solid #eee', paddingBottom: 12, marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <strong style={{ fontSize: 14 }}>{r.touristUsername}</strong>
-                <span style={{ color: '#f39c12', fontSize: 14 }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                <span style={{ color: '#f39c12', fontSize: 14 }}>{'*'.repeat(r.rating)}{'-'.repeat(5 - r.rating)}</span>
               </div>
               <p style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>
-                Posetio: {r.visitDate} · Objavljeno: {new Date(r.createdAt).toLocaleDateString()}
+                Visited: {r.visitDate} | Posted: {new Date(r.createdAt).toLocaleDateString()}
               </p>
               <p style={{ fontSize: 14 }}>{r.comment}</p>
               {r.imageUrls?.map((url, i) => (

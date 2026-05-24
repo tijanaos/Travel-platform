@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { stakeholdersClient } from '../../api/client';
 import { Profile } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -8,7 +8,6 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', biography: '', motto: '' });
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -35,7 +34,7 @@ export default function ProfilePage() {
         last_name: form.lastName,
         bio: form.biography,
         motto: form.motto,
-        profile_picture: '',
+        profile_picture: profile?.profile_picture || '',
       });
       setProfile(res.data);
       setEditing(false);
@@ -59,14 +58,14 @@ export default function ProfilePage() {
           )}
           <div>
             <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>{profile.first_name} {profile.last_name}</p>
-            <p style={{ color: '#666', fontSize: 14 }}>@{user?.username} · {user?.role}</p>
+            <p style={{ color: '#666', fontSize: 14 }}>@{user?.username} | {user?.role}</p>
           </div>
         </div>
 
         {!editing ? (
           <>
-            <p style={{ marginBottom: 8 }}><strong>Biography:</strong> {profile.bio || '—'}</p>
-            <p style={{ marginBottom: 16 }}><strong>Motto:</strong> {profile.motto || '—'}</p>
+            <p style={{ marginBottom: 8 }}><strong>Biography:</strong> {profile.bio || '-'}</p>
+            <p style={{ marginBottom: 16 }}><strong>Motto:</strong> {profile.motto || '-'}</p>
             <button className="btn-primary" onClick={() => setEditing(true)}>Edit Profile</button>
           </>
         ) : (
@@ -90,11 +89,6 @@ export default function ProfilePage() {
             <div className="form-group">
               <label>Motto</label>
               <input value={form.motto} onChange={e => setForm(f => ({ ...f, motto: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label>Profile Image</label>
-              <input type="file" accept="image/*" style={{ padding: 4 }}
-                onChange={e => setImageFile(e.target.files?.[0] || null)} />
             </div>
             {error && <p className="error" style={{ marginBottom: 8 }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>

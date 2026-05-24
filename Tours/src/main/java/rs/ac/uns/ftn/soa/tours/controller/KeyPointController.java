@@ -53,13 +53,15 @@ public class KeyPointController {
     public ResponseEntity<List<KeyPoint>> getKeyPoints(@PathVariable Long tourId,
                                                        HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
-        String role = (String) request.getAttribute("role");
 
         List<KeyPoint> all = keyPointService.getKeyPointsForTour(tourId);
 
         try {
             Tour tour = tourService.getTourById(tourId);
             boolean isAuthor = userId != null && userId.equals(tour.getAuthorId());
+            if (!isAuthor && tour.getStatus() != Tour.TourStatus.PUBLISHED) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             if (!isAuthor && all.size() > 1) {
                 return ResponseEntity.ok(List.of(all.get(0)));
             }
@@ -112,30 +114,4 @@ public class KeyPointController {
         }
     }
 
-    @PutMapping(value = "/{keyPointId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> updateKeyPoint(
-            @PathVariable Long tourId,
-            @PathVariable Long keyPointId,
-            @RequestParam String name,
-            @RequestParam(required = false) String description,
-            @RequestParam Double latitude,
-            @RequestParam Double longitude,
-            @RequestParam(required = false) MultipartFile image,
-            HttpServletRequest request) {
-
-        Long userId = (Long) request.getAttribute("userId");
-        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        try {
-            KeyPoint kp = keyPointService.updateKeyPoint(keyPointId, name, description,
-                    latitude, longitude, image, userId);
-            return ResponseEntity.ok(kp);
-        } catch (SecurityException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Image upload failed");
-        }
-    }
 }

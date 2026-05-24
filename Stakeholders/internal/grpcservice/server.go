@@ -23,6 +23,10 @@ type UserGrpcServer struct {
 	userRepo *repository.UserRepository
 }
 
+type UserServiceServer interface {
+	getUsernameById(context.Context, *GetUsernameRequest) (*GetUsernameResponse, error)
+}
+
 func NewUserGrpcServer(userRepo *repository.UserRepository) *UserGrpcServer {
 	return &UserGrpcServer{userRepo: userRepo}
 }
@@ -38,7 +42,7 @@ func (s *UserGrpcServer) getUsernameById(ctx context.Context, req *GetUsernameRe
 // userServiceDesc matches the service descriptor defined in user.proto.
 var userServiceDesc = grpc.ServiceDesc{
 	ServiceName: "user.UserService",
-	HandlerType: (*UserGrpcServer)(nil),
+	HandlerType: (*UserServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetUsernameById",
@@ -54,14 +58,14 @@ func getUsernameByIdHandler(srv interface{}, ctx context.Context, dec func(inter
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(*UserGrpcServer).getUsernameById(ctx, req)
+		return srv.(UserServiceServer).getUsernameById(ctx, req)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/user.UserService/GetUsernameById",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(*UserGrpcServer).getUsernameById(ctx, req.(*GetUsernameRequest))
+		return srv.(UserServiceServer).getUsernameById(ctx, req.(*GetUsernameRequest))
 	}
 	return interceptor(ctx, req, info, handler)
 }

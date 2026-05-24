@@ -11,7 +11,9 @@ import rs.ac.uns.ftn.soa.tours.repository.TourRepository;
 import rs.ac.uns.ftn.soa.tours.repository.TransportTimeRepository;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,18 @@ public class TourService {
         return tourRepository.findByStatus(Tour.TourStatus.PUBLISHED);
     }
 
+    public List<Tour> getVisibleTours(Long userId, String role) {
+        List<Tour> published = getPublishedTours();
+        if (userId == null || role == null || (!"author".equalsIgnoreCase(role) && !"guide".equalsIgnoreCase(role))) {
+            return published;
+        }
+
+        Map<Long, Tour> toursById = new LinkedHashMap<>();
+        published.forEach(tour -> toursById.put(tour.getId(), tour));
+        getMyTours(userId).forEach(tour -> toursById.put(tour.getId(), tour));
+        return List.copyOf(toursById.values());
+    }
+
     public List<Tour> getMyTours(Long authorId) {
         return tourRepository.findByAuthorId(authorId);
     }
@@ -42,6 +56,28 @@ public class TourService {
     public Tour getTourById(Long id) {
         return tourRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tour not found: " + id));
+    }
+
+    public Tour getTourForViewer(Long id, Long viewerId) {
+        Tour tour = getTourById(id);
+        boolean isAuthor = viewerId != null && viewerId.equals(tour.getAuthorId());
+        if (isAuthor || tour.getStatus() == Tour.TourStatus.PUBLISHED) {
+            return tour;
+        }
+        throw new SecurityException("Only published tours are visible to tourists");
+    }
+
+    public Tour updatePrice(Long tourId, Double price, Long requesterId) {
+        Tour tour = getTourById(tourId);
+        if (!tour.getAuthorId().equals(requesterId)) {
+            throw new SecurityException("Only the tour author can update the price");
+        }
+        if (price == null || price < 0) {
+            throw new IllegalArgumentException("Price must be zero or greater");
+        }
+
+        tour.setPrice(price);
+        return tourRepository.save(tour);
     }
 
     public Tour publishTour(Long tourId, Long requesterId) {
@@ -113,7 +149,8 @@ public class TourService {
             throw new SecurityException("Only the tour author can manage transport times");
         }
 
-        TransportTime tt = new TransportTime();
+        TransportTime tt = transportTimeRepository.findByTourIdAndType(tourId, req.type())
+                .orElseGet(TransportTime::new);
         tt.setTourId(tourId);
         tt.setType(req.type());
         tt.setDurationMinutes(req.durationMinutes());
