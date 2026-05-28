@@ -4,7 +4,7 @@ import { MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from '
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { toursClient } from '../../api/client';
-import { KeyPoint, Review, Tour, TransportTime } from '../../types';
+import { KeyPoint, Review, Tour, TransportTime, TourPurchaseToken } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -64,12 +64,24 @@ export default function TourDetailPage() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [error, setError] = useState('');
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
+  const [purchased, setPurchased] = useState(false);
+  const [inCart, setInCart] = useState(false);
+  const [cartMsg, setCartMsg] = useState('');
 
   useEffect(() => {
     toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
     toursClient.get(`/api/tours/${id}/keypoints`).then(res => setKeyPoints(res.data));
     toursClient.get(`/api/tours/${id}/reviews`).then(res => setReviews(res.data)).catch(() => {});
     toursClient.get(`/api/tours/${id}/transport-times`).then(res => setTransportTimes(res.data)).catch(() => {});
+    if (user?.role === 'tourist') {
+      toursClient.get('/api/purchases').then(res => {
+        const tokens: TourPurchaseToken[] = res.data;
+        setPurchased(tokens.some(t => t.tourId === Number(id)));
+      }).catch(() => {});
+      toursClient.get('/api/cart').then(res => {
+        setInCart(res.data.items.some((item: { tourId: number }) => item.tourId === Number(id)));
+      }).catch(() => {});
+    }
   }, [id]);
 
   useEffect(() => {
@@ -240,6 +252,17 @@ export default function TourDetailPage() {
     }
   }
 
+  async function addToCart() {
+    setCartMsg('');
+    try {
+      await toursClient.post('/api/cart/items', { tourId: Number(id) });
+      setInCart(true);
+      setCartMsg('Added to cart!');
+    } catch (err: any) {
+      setCartMsg(err.response?.data || 'Failed to add to cart');
+    }
+  }
+
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -309,6 +332,19 @@ export default function TourDetailPage() {
             {error}
           </p>
         )}
+
+        {isTourist && tour.status === 'PUBLISHED' && (
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+            {purchased ? (
+              <span style={{ fontSize: 14, color: '#389e0d', fontWeight: 600 }}>✓ Purchased</span>
+            ) : inCart ? (
+              <span style={{ fontSize: 14, color: '#1976d2' }}>In cart</span>
+            ) : (
+              <button className="btn-primary" onClick={addToCart}>Add to Cart</button>
+            )}
+            {cartMsg && <span style={{ fontSize: 13, color: inCart ? '#389e0d' : '#dc3545' }}>{cartMsg}</span>}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
@@ -342,7 +378,7 @@ export default function TourDetailPage() {
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3>Key Points ({keyPoints.length}{!isAuthor && tour.status !== 'DRAFT' ? ' - showing first point only' : ''})</h3>
+          <h3>Key Points ({keyPoints.length}{!isAuthor && !purchased && tour.status === 'PUBLISHED' ? ' - starting point only' : ''})</h3>
           {isAuthor && !editingKP && (
             <button className={addingKP ? 'btn-secondary' : 'btn-primary'}
               onClick={() => { setAddingKP(!addingKP); setPendingLatLng(null); }}>

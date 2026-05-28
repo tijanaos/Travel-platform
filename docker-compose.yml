@@ -102,8 +102,10 @@ services:
       SERVER_PORT: 8081
       BASE_URL: http://localhost:8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
+      GRPC_PORT: 9092
     ports:
       - "8081:8081"
+      - "9092:9092"
     volumes:
       - ./Blog/uploads:/app/uploads
     depends_on:
@@ -221,6 +223,7 @@ services:
       SERVER_PORT: 8083
       STAKEHOLDERS_URL: http://stakeholders-service:8080
       BLOG_URL: http://blog-service:8081
+      BLOG_GRPC_ADDRESS: blog-service:9092
     ports:
       - "8083:8083"
     depends_on:
@@ -252,6 +255,7 @@ services:
       TOURS_URL: http://tours-service:8082
       FOLLOWER_URL: http://follower-service:8083
       TOURS_GRPC_ADDRESS: tours-service:9091
+      BLOG_GRPC_ADDRESS: blog-service:9092
     ports:
       - "8084:8084"
     depends_on:

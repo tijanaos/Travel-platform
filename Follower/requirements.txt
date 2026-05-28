@@ -3,3 +3,5 @@ uvicorn[standard]==0.30.6
 neo4j==5.19.0
 pydantic-settings==2.3.4
 httpx==0.27.0
+grpcio==1.64.0
+grpcio-tools==1.64.0

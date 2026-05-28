@@ -84,3 +84,25 @@ export interface Review {
   createdAt: string;
   imageUrls: string[];
 }
+
+export interface OrderItem {
+  id: number;
+  tourId: number;
+  tourName: string;
+  price: number;
+}
+
+export interface ShoppingCart {
+  id: number;
+  touristId: number;
+  totalPrice: number;
+  items: OrderItem[];
+}
+
+export interface TourPurchaseToken {
+  id: number;
+  touristId: number;
+  tourId: number;
+  token: string;
+  purchasedAt: string;
+}

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     server_port: int = 8083
     stakeholders_url: str = "http://stakeholders-service:8080"
     blog_url: str = "http://blog-service:8081"
+    blog_grpc_address: str = "blog-service:9092"
 
     model_config = {"env_file": ".env"}
 

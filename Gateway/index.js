@@ -13,6 +13,7 @@ const BLOG_URL            = process.env.BLOG_URL            || 'http://localhost
 const TOURS_URL           = process.env.TOURS_URL           || 'http://localhost:8082';
 const FOLLOWER_URL        = process.env.FOLLOWER_URL        || 'http://localhost:8083';
 const TOURS_GRPC_ADDRESS  = process.env.TOURS_GRPC_ADDRESS  || 'localhost:9091';
+const BLOG_GRPC_ADDRESS   = process.env.BLOG_GRPC_ADDRESS   || 'localhost:9092';
 
 // Load tour.proto for gRPC CreateTour call
 const PROTO_PATH = path.join(__dirname, 'proto', 'tour.proto');
@@ -28,6 +29,24 @@ const tourProto = grpc.loadPackageDefinition(packageDef).tour;
 function createTourGrpcClient() {
   return new tourProto.TourService(
     TOURS_GRPC_ADDRESS,
+    grpc.credentials.createInsecure()
+  );
+}
+
+// Load blog.proto for gRPC GetBlog call
+const BLOG_PROTO_PATH = path.join(__dirname, 'proto', 'blog.proto');
+const blogPackageDef = protoLoader.loadSync(BLOG_PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
+const blogProto = grpc.loadPackageDefinition(blogPackageDef).blog;
+
+function createBlogGrpcClient() {
+  return new blogProto.BlogService(
+    BLOG_GRPC_ADDRESS,
     grpc.credentials.createInsecure()
   );
 }
@@ -156,6 +175,29 @@ function makeFetchProxy(target) {
 app.use('/api/auth',             makeFetchProxy(STAKEHOLDERS_URL));
 app.use('/api/profile',          makeFetchProxy(STAKEHOLDERS_URL));
 app.use('/api/users',            makeFetchProxy(STAKEHOLDERS_URL));
+// GET /api/blogs/:id — via gRPC to Blog service
+app.get('/api/blogs/:id', (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  let userId = 0;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    userId = parseInt(payload.user_id || payload.userId || payload.sub || '0', 10);
+  } catch (_) {}
+
+  const client = createBlogGrpcClient();
+  client.GetBlog({ blog_id: req.params.id, user_id: userId }, (err, response) => {
+    client.close();
+    if (err) {
+      if (err.code === grpc.status.NOT_FOUND)
+        return res.status(404).json({ error: 'Blog not found' });
+      console.error('[Gateway] gRPC GetBlog error:', err.message);
+      return res.status(502).json({ error: 'gRPC call failed', detail: err.message });
+    }
+    res.status(200).json(response.blog);
+  });
+});
+
 app.use('/api/blogs', (req, res, next) => {
   const suffix = req.url === '/' || req.url === '' ? '/' : req.url;
   return proxy(BLOG_URL, {
@@ -187,6 +229,9 @@ app.use('/api/recommendations', makeProxy(FOLLOWER_URL, '/recommendations'));
 app.use('/api/discover',        makeProxy(FOLLOWER_URL, '/discover'));
 app.use('/api/following',       makeProxy(FOLLOWER_URL, '/following'));
 
+app.use('/api/cart',      makeProxy(TOURS_URL, '/api/cart'));
+app.use('/api/purchases', makeProxy(TOURS_URL, '/api/purchases'));
+
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'gateway' }));
 
 app.listen(PORT, () => {
@@ -194,5 +239,6 @@ app.listen(PORT, () => {
   console.log(`  → stakeholders : ${STAKEHOLDERS_URL}`);
   console.log(`  → blog         : ${BLOG_URL}`);
   console.log(`  → tours        : ${TOURS_URL} (gRPC CreateTour → ${TOURS_GRPC_ADDRESS})`);
+  console.log(`  → blog (gRPC)  : ${BLOG_GRPC_ADDRESS}`);
   console.log(`  → follower     : ${FOLLOWER_URL}`);
 });

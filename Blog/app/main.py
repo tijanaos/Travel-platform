@@ -7,14 +7,17 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import close_db, init_db
+from app.grpc_server import serve as start_grpc
 from app.router import router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    grpc_server = await start_grpc(settings.grpc_port)
     yield
     close_db()
+    await grpc_server.stop(0)
 
 
 app = FastAPI(title="Blog Service", lifespan=lifespan)

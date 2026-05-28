@@ -23,6 +23,7 @@ export default function Navbar() {
             <Link to="/recommendations" style={styles.link}>Discover</Link>
             <Link to="/tours" style={styles.link}>Tours</Link>
             {user?.role === 'tourist' && <Link to="/simulator" style={styles.link}>Position</Link>}
+            {user?.role === 'tourist' && <Link to="/cart" style={styles.link}>Cart</Link>}
             <Link to="/profile" style={styles.link}>Profile</Link>
             {(user?.role === 'guide') && (
               <Link to="/tours/new" style={styles.link}>New Tour</Link>

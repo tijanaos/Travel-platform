@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     base_url: str = "http://localhost:8081"
     stakeholders_url: str = "http://stakeholders-service:8080"
+    grpc_port: int = 9092
 
     model_config = {"env_file": ".env"}
 

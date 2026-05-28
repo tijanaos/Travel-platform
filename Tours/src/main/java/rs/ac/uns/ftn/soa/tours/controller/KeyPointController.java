@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import rs.ac.uns.ftn.soa.tours.model.KeyPoint;
 import rs.ac.uns.ftn.soa.tours.model.Tour;
 import rs.ac.uns.ftn.soa.tours.service.KeyPointService;
+import rs.ac.uns.ftn.soa.tours.service.ShoppingCartService;
 import rs.ac.uns.ftn.soa.tours.service.TourService;
 
 import java.io.IOException;
@@ -22,6 +23,7 @@ public class KeyPointController {
 
     private final KeyPointService keyPointService;
     private final TourService tourService;
+    private final ShoppingCartService shoppingCartService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> addKeyPoint(
@@ -62,8 +64,11 @@ public class KeyPointController {
             if (!isAuthor && tour.getStatus() != Tour.TourStatus.PUBLISHED) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
-            if (!isAuthor && all.size() > 1) {
-                return ResponseEntity.ok(List.of(all.get(0)));
+            if (!isAuthor) {
+                boolean purchased = userId != null && shoppingCartService.hasPurchased(userId, tourId);
+                if (!purchased && all.size() > 1) {
+                    return ResponseEntity.ok(List.of(all.get(0)));
+                }
             }
         } catch (RuntimeException ignored) {}
 

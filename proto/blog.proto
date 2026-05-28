@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package blog;
+
+service BlogService {
+  rpc GetBlog(GetBlogRequest) returns (GetBlogResponse);
+  rpc GetBlogsByAuthorIds(GetBlogsByAuthorIdsRequest) returns (GetBlogsByAuthorIdsResponse);
+}
+
+message GetBlogRequest {
+  string blog_id = 1;
+  int64  user_id = 2;
+}
+
+message GetBlogResponse {
+  Blog blog = 1;
+}
+
+message GetBlogsByAuthorIdsRequest {
+  repeated int64 author_ids = 1;
+}
+
+message GetBlogsByAuthorIdsResponse {
+  repeated Blog blogs = 1;
+}
+
+message BlogImage {
+  string id  = 1;
+  string url = 2;
+}
+
+message Blog {
+  string             id          = 1;
+  string             title       = 2;
+  string             description = 3;
+  string             created_at  = 4;
+  int64              author_id   = 5;
+  int32              likes_count = 6;
+  bool               liked_by_me = 7;
+  repeated BlogImage images      = 8;
+}
