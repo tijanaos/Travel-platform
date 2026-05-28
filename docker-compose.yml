@@ -275,6 +275,36 @@ services:
 
   # ── Observability stack ──────────────────────────────────────────────────────
 
+  node-exporter:
+    image: prom/node-exporter:latest
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - travel-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./logging/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    depends_on:
+      - node-exporter
+    networks:
+      - travel-network
+
   loki:
     image: grafana/loki:2.9.4
     ports:
@@ -309,9 +339,11 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     volumes:
       - ./logging/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./logging/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - grafana-data:/var/lib/grafana
     depends_on:
       - loki
+      - prometheus
     networks:
       - travel-network
 
@@ -323,6 +355,7 @@ volumes:
   pgadmin-data:
   loki-data:
   grafana-data:
+  prometheus-data:
 
 networks:
   travel-network:
