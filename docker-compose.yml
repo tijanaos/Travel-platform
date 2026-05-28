@@ -293,7 +293,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - "9095:9090"
     volumes:
       - ./logging/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
@@ -307,6 +307,7 @@ services:
 
   loki:
     image: grafana/loki:2.9.4
+    user: root
     ports:
       - "3100:3100"
     volumes:
