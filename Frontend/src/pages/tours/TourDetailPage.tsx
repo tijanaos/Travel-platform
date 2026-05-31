@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -42,7 +42,6 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 
 export default function TourDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { setExecution } = useTourExecution();
   const [tour, setTour] = useState<Tour | null>(null);
@@ -272,7 +271,6 @@ export default function TourDetailPage() {
     try {
       const res = await toursClient.post('/api/executions', { tourId: Number(id) });
       setExecution(res.data);
-      navigate(`/executions/${res.data.id}`);
     } catch (err: any) {
       setStartMsg(err.response?.data || 'Failed to start tour');
     }
