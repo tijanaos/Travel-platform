@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { toursClient } from '../../api/client';
 import { KeyPoint, Review, Tour, TransportTime, TourPurchaseToken } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTourExecution } from '../../context/TourExecutionContext';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -43,6 +44,7 @@ export default function TourDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setExecution } = useTourExecution();
   const [tour, setTour] = useState<Tour | null>(null);
   const [keyPoints, setKeyPoints] = useState<KeyPoint[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -269,6 +271,7 @@ export default function TourDetailPage() {
     setStartMsg('');
     try {
       const res = await toursClient.post('/api/executions', { tourId: Number(id) });
+      setExecution(res.data);
       navigate(`/executions/${res.data.id}`);
     } catch (err: any) {
       setStartMsg(err.response?.data || 'Failed to start tour');

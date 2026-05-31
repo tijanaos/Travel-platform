@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TourExecutionProvider } from './context/TourExecutionContext';
 import Navbar from './components/Navbar';
+import ActiveTourWidget from './components/ActiveTourWidget';
 
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -31,6 +33,7 @@ function AppRoutes() {
   return (
     <>
       <Navbar />
+      <ActiveTourWidget />
       <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
         <Routes>
           <Route path="/" element={<Navigate to="/blogs" />} />
@@ -60,7 +63,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <TourExecutionProvider>
+          <AppRoutes />
+        </TourExecutionProvider>
       </AuthProvider>
     </BrowserRouter>
   );
