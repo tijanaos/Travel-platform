@@ -119,3 +119,28 @@ func (s *UserService) SetBlocked(id uint, blocked bool) (*domain.User, error) {
 	user.IsBlocked = blocked
 	return user, nil
 }
+
+func (s *UserService) Reserve(touristID uint, tokens []map[string]interface{}) error {
+    for _, t := range tokens {
+        tokenID, ok := t["token"].(string)
+        if !ok { continue }
+
+        reservation := &domain.Reservation{
+            TouristID: touristID,
+            TokenID:   tokenID,
+        }
+
+        if err := s.repo.GetDB().Create(reservation).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+func (s *UserService) Release(touristID uint, tokenID string) error {
+    return s.repo.GetDB().Where("tourist_id = ? AND token_id = ?", touristID, tokenID).Delete(&domain.Reservation{}).Error
+}
+
+func (s *UserService) ReleaseAll(touristID uint) error {
+    return s.repo.GetDB().Where("tourist_id = ?", touristID).Delete(&domain.Reservation{}).Error
+}

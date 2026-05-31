@@ -13,9 +13,15 @@ import (
 	"github.com/tijanaos/Stakeholders/internal/service"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"context"
+    "github.com/tijanaos/Stakeholders/tracing"
+    "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func main() {
+	shutdown := tracing.InitTracer()
+    defer shutdown(context.Background())
+
 	cfg := config.Load()
 
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{})
@@ -23,7 +29,7 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&domain.User{}, &domain.Profile{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Profile{}, &domain.Reservation{}); err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
@@ -41,6 +47,7 @@ func main() {
 	go grpcservice.StartGrpcServer(userRepo, cfg.JWTSecret, cfg.GrpcPort)
 
 	r := gin.Default()
+	r.Use(otelgin.Middleware("stakeholders-service"))
 
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")

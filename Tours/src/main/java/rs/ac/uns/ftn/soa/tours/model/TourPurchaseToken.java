@@ -27,4 +27,8 @@ public class TourPurchaseToken {
 
     @Column(nullable = false)
     private LocalDateTime purchasedAt = LocalDateTime.now();
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private PurchaseStatus status = PurchaseStatus.PENDING;
 }

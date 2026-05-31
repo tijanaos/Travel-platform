@@ -40,6 +40,20 @@ async def get_all_blogs(
     parsed = [int(x) for x in author_ids.split(",") if x.strip()] if author_ids else None
     return await service.get_all_blogs(user_id, parsed)
 
+@router.post("/internal", response_model=BlogOut, status_code=201)
+async def create_blog_internal(
+    data: BlogCreate,
+    service: BlogService = Depends(get_service),
+):
+    return await service.create_blog_internal(data)
+
+
+@router.delete("/internal/{blog_id}", status_code=204)
+async def delete_blog_internal(
+    blog_id: str,
+    service: BlogService = Depends(get_service),
+):
+    await service.delete_blog_internal(blog_id)
 
 @router.get("/{blog_id}", response_model=BlogOut)
 async def get_blog(blog_id: str, authorization: Optional[str] = Header(default=None), service: BlogService = Depends(get_service)):

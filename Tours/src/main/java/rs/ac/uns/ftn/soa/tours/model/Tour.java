@@ -62,4 +62,7 @@ public class Tour {
     public enum TourStatus {
         DRAFT, PUBLISHED, ARCHIVED
     }
+
+    @Column
+    private String blogPostId;
 }

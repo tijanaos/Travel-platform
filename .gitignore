@@ -12,6 +12,9 @@ vendor/
 .DS_Store
 Thumbs.db
 
+#Java Maven
+target/
+
 # Uploaded images
 Blog/uploads/*
 !Blog/uploads/.gitkeep

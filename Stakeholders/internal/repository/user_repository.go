@@ -53,3 +53,7 @@ func (r *UserRepository) FindByID(id uint) (*domain.User, error) {
 func (r *UserRepository) SetBlocked(id uint, blocked bool) error {
 	return r.db.Model(&domain.User{}).Where("id = ?", id).Update("is_blocked", blocked).Error
 }
+
+func (r *UserRepository) GetDB() *gorm.DB {
+    return r.db
+}

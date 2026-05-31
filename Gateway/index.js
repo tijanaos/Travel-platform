@@ -1,3 +1,4 @@
+require('./tracing');
 const express = require('express');
 const proxy = require('express-http-proxy');
 const cors = require('cors');
@@ -66,6 +67,24 @@ const blogProto = grpc.loadPackageDefinition(blogPackageDef).blog;
 function createBlogGrpcClient() {
   return new blogProto.BlogService(
     BLOG_GRPC_ADDRESS,
+    grpc.credentials.createInsecure()
+  );
+}
+
+// Load position.proto
+const POSITION_PROTO_PATH = path.join(__dirname, 'proto', 'position.proto');
+const positionPackageDef = protoLoader.loadSync(POSITION_PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
+const positionProto = grpc.loadPackageDefinition(positionPackageDef).position;
+
+function createPositionGrpcClient() {
+  return new positionProto.TouristPositionService(
+    TOURS_GRPC_ADDRESS,
     grpc.credentials.createInsecure()
   );
 }
@@ -260,7 +279,52 @@ app.use('/api/blogs', (req, res, next) => {
   })(req, res, next);
 });
 app.use('/api/follow',           makeProxy(FOLLOWER_URL,     '/follow'));
-app.use('/api/tourist-position', makeProxy(TOURS_URL,        '/api/tourist-position'));
+
+// PUT /api/tourist-position (Update)
+app.put('/api/tourist-position', express.json(), (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const body = req.body || {}; // Očekuje { latitude: 44.8, longitude: 20.4 }
+
+  let userId = 0;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    userId = parseInt(payload.user_id || payload.userId || payload.sub || '0', 10);
+  } catch (_) { return res.status(401).send(); }
+
+  const client = createPositionGrpcClient();
+  client.UpdatePosition({ 
+    tourist_id: userId, 
+    latitude: body.latitude, 
+    longitude: body.longitude 
+  }, (err, response) => {
+    client.close();
+    if (err) return res.status(502).json({ error: 'gRPC Update failed', detail: err.message });
+    res.json(response);
+  });
+});
+
+// GET /api/tourist-position (Get)
+app.get('/api/tourist-position', (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  let userId = 0;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    userId = parseInt(payload.user_id || payload.userId || payload.sub || '0', 10);
+  } catch (_) { return res.status(401).send(); }
+
+  const client = createPositionGrpcClient();
+  client.GetPosition({ tourist_id: userId }, (err, response) => {
+    client.close();
+    if (err) {
+      if (err.code === grpc.status.NOT_FOUND) return res.status(204).send();
+      return res.status(502).json({ error: 'gRPC Get failed', detail: err.message });
+    }
+    res.json(response);
+  });
+});
+
 app.use('/api/tours',            makeProxy(TOURS_URL,        '/api/tours'));
 app.use('/api/feed',            makeProxy(FOLLOWER_URL, '/feed'));
 app.use('/api/recommendations', makeProxy(FOLLOWER_URL, '/recommendations'));
