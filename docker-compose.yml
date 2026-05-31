@@ -36,6 +36,7 @@ services:
       SERVER_PORT: 8080
       GRPC_PORT: 9090
       FOLLOWER_URL: http://follower-service:8083
+      OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4318
     ports:
       - "8080:8080"
       - "9090:9090"
@@ -259,6 +260,7 @@ services:
       TOURS_GRPC_ADDRESS: tours-service:9091
       BLOG_GRPC_ADDRESS: blog-service:9092
       STAKEHOLDERS_GRPC_ADDRESS: stakeholders-service:9090
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
     ports:
       - "8084:8084"
     depends_on:
@@ -267,6 +269,7 @@ services:
       - tours-service
       - follower-service
       - fluent-bit
+      - jaeger
     networks:
       - travel-network
     logging:
@@ -361,6 +364,17 @@ services:
     depends_on:
       - loki
       - prometheus
+    networks:
+      - travel-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
     networks:
       - travel-network
 
