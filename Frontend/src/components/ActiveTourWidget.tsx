@@ -77,6 +77,7 @@ export default function ActiveTourWidget() {
   const completed = execution.completedKeyPoints.length;
   const total = keyPoints.length;
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const allCompleted = total > 0 && completed === total;
   const completedKpIds = new Set(execution.completedKeyPoints.map(c => c.keyPointId));
 
   const mapCenter: [number, number] = currentPos
@@ -252,9 +253,19 @@ export default function ActiveTourWidget() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleComplete} style={completeBtnStyle}>✓ Complete</button>
+              <button
+                onClick={handleComplete}
+                disabled={!allCompleted}
+                title={!allCompleted ? `Reach all key points first (${completed}/${total})` : 'Complete tour'}
+                style={{ ...completeBtnStyle, opacity: allCompleted ? 1 : 0.4, cursor: allCompleted ? 'pointer' : 'not-allowed' }}
+              >✓ Complete</button>
               <button onClick={handleAbandon} style={abandonBtnStyle}>✕ Abandon</button>
             </div>
+            {!allCompleted && (
+              <p style={{ fontSize: 11, color: '#888', margin: 0 }}>
+                Complete all {total} key points to finish the tour.
+              </p>
+            )}
 
             {/* Timestamps */}
             <div style={{ fontSize: 11, color: '#555', borderTop: '1px solid #0f3460', paddingTop: 8 }}>

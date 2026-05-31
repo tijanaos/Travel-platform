@@ -74,6 +74,14 @@ public class TourExecutionService {
             throw new IllegalStateException("Only active sessions can be completed");
         }
 
+        long totalKP = keyPointRepository.countByTourId(execution.getTourId());
+        long completedKP = execution.getCompletedKeyPoints().size();
+        if (completedKP < totalKP) {
+            throw new IllegalStateException(
+                "Must reach all key points before completing (" + completedKP + "/" + totalKP + ")"
+            );
+        }
+
         execution.setStatus(TourExecution.ExecutionStatus.COMPLETED);
         execution.setCompletedAt(LocalDateTime.now());
         execution.setLastActivity(LocalDateTime.now());
