@@ -172,6 +172,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: tours_db
       STAKEHOLDERS_URL: http://stakeholders-service:8080
+      BLOG_URL: http://blog-service:8081
       STAKEHOLDERS_GRPC_HOST: stakeholders-service
       STAKEHOLDERS_GRPC_PORT: 9090
       GRPC_SERVER_PORT: 9091
