@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { toursClient } from '../../api/client';
 import { KeyPoint, Review, Tour, TransportTime, TourPurchaseToken } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useTourExecution } from '../../context/TourExecutionContext';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -42,6 +43,7 @@ function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number
 export default function TourDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { setExecution } = useTourExecution();
   const [tour, setTour] = useState<Tour | null>(null);
   const [keyPoints, setKeyPoints] = useState<KeyPoint[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -67,6 +69,7 @@ export default function TourDetailPage() {
   const [purchased, setPurchased] = useState(false);
   const [inCart, setInCart] = useState(false);
   const [cartMsg, setCartMsg] = useState('');
+  const [startMsg, setStartMsg] = useState('');
 
   useEffect(() => {
     toursClient.get(`/api/tours/${id}`).then(res => setTour(res.data));
@@ -263,6 +266,16 @@ export default function TourDetailPage() {
     }
   }
 
+  async function startTour() {
+    setStartMsg('');
+    try {
+      const res = await toursClient.post('/api/executions', { tourId: Number(id) });
+      setExecution(res.data);
+    } catch (err: any) {
+      setStartMsg(err.response?.data || 'Failed to start tour');
+    }
+  }
+
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -333,16 +346,25 @@ export default function TourDetailPage() {
           </p>
         )}
 
-        {isTourist && tour.status === 'PUBLISHED' && (
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-            {purchased ? (
-              <span style={{ fontSize: 14, color: '#389e0d', fontWeight: 600 }}>✓ Purchased</span>
-            ) : inCart ? (
-              <span style={{ fontSize: 14, color: '#1976d2' }}>In cart</span>
-            ) : (
-              <button className="btn-primary" onClick={addToCart}>Add to Cart</button>
+        {isTourist && (tour.status === 'PUBLISHED' || tour.status === 'ARCHIVED') && (
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {tour.status === 'PUBLISHED' && (
+              purchased ? (
+                <span style={{ fontSize: 14, color: '#389e0d', fontWeight: 600 }}>✓ Purchased</span>
+              ) : inCart ? (
+                <span style={{ fontSize: 14, color: '#1976d2' }}>In cart</span>
+              ) : (
+                <button className="btn-primary" onClick={addToCart}>Add to Cart</button>
+              )
+            )}
+            {purchased && (
+              <button className="btn-primary" onClick={startTour}
+                style={{ background: '#2e7d32' }}>
+                ▶ Start Tour
+              </button>
             )}
             {cartMsg && <span style={{ fontSize: 13, color: inCart ? '#389e0d' : '#dc3545' }}>{cartMsg}</span>}
+            {startMsg && <span style={{ fontSize: 13, color: '#dc3545' }}>{startMsg}</span>}
           </div>
         )}
       </div>
