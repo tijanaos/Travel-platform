@@ -106,3 +106,30 @@ export interface TourPurchaseToken {
   token: string;
   purchasedAt: string;
 }
+
+export interface CompletedKeyPoint {
+  id: number;
+  keyPointId: number;
+  completedAt: string;
+}
+
+export interface TourExecution {
+  id: number;
+  tourId: number;
+  touristId: number;
+  status: 'ACTIVE' | 'COMPLETED' | 'ABANDONED';
+  startedAt: string;
+  lastActivity: string | null;
+  abandonedAt: string | null;
+  completedAt: string | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
+  completedKeyPoints: CompletedKeyPoint[];
+}
+
+export interface ProximityResult {
+  newKeyPointCompleted: boolean;
+  completedKeyPoint: CompletedKeyPoint | null;
+  totalCompleted: number;
+  totalKeyPoints: number;
+}

@@ -18,6 +18,7 @@ import TourCreatePage from './pages/tours/TourCreatePage';
 import MyToursPage from './pages/tours/MyToursPage';
 import SimulatorPage from './pages/tours/SimulatorPage';
 import CartPage from './pages/tours/CartPage';
+import ActiveTourPage from './pages/tours/ActiveTourPage';
 
 import AdminPage from './pages/admin/AdminPage';
 
@@ -48,6 +49,7 @@ function AppRoutes() {
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/simulator" element={<ProtectedRoute><SimulatorPage /></ProtectedRoute>} />
           <Route path="/cart" element={<ProtectedRoute><CartPage /></ProtectedRoute>} />
+          <Route path="/executions/:id" element={<ProtectedRoute><ActiveTourPage /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

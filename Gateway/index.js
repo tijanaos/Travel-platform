@@ -267,8 +267,9 @@ app.use('/api/recommendations', makeProxy(FOLLOWER_URL, '/recommendations'));
 app.use('/api/discover',        makeProxy(FOLLOWER_URL, '/discover'));
 app.use('/api/following',       makeProxy(FOLLOWER_URL, '/following'));
 
-app.use('/api/cart',      makeProxy(TOURS_URL, '/api/cart'));
-app.use('/api/purchases', makeProxy(TOURS_URL, '/api/purchases'));
+app.use('/api/cart',       makeProxy(TOURS_URL, '/api/cart'));
+app.use('/api/purchases',  makeProxy(TOURS_URL, '/api/purchases'));
+app.use('/api/executions', makeProxy(TOURS_URL, '/api/executions'));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'gateway' }));
 
