@@ -118,3 +118,13 @@ class BlogService:
         await self._get_or_404(blog_id)
         comments = await self.repo.get_comments(blog_id)
         return [CommentOut(**c) for c in comments]
+    
+    async def create_blog_internal(self, data: BlogCreate) -> BlogOut:
+        blog = await self.repo.create(data)
+        blog = await self.repo.get_by_id(blog["id"])
+        return self._to_out(blog)
+
+    async def delete_blog_internal(self, blog_id: str) -> None:
+        blog = await self.repo.get_by_id(blog_id)
+        if blog:
+            await self.repo.delete(blog_id)
