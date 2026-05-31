@@ -102,6 +102,7 @@ services:
       SERVER_PORT: 8081
       BASE_URL: http://localhost:8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
+      STAKEHOLDERS_GRPC_ADDRESS: stakeholders-service:9090
       GRPC_PORT: 9092
     ports:
       - "8081:8081"
@@ -256,6 +257,7 @@ services:
       FOLLOWER_URL: http://follower-service:8083
       TOURS_GRPC_ADDRESS: tours-service:9091
       BLOG_GRPC_ADDRESS: blog-service:9092
+      STAKEHOLDERS_GRPC_ADDRESS: stakeholders-service:9090
     ports:
       - "8084:8084"
     depends_on:

@@ -20,6 +20,8 @@ func (ProtoCodec) Marshal(v interface{}) ([]byte, error) {
 	switch msg := v.(type) {
 	case *GetUsernameResponse:
 		return marshalGetUsernameResponse(msg)
+	case *ValidateTokenResponse:
+		return marshalValidateTokenResponse(msg)
 	default:
 		return nil, fmt.Errorf("codec: unsupported type %T", v)
 	}
@@ -29,6 +31,8 @@ func (ProtoCodec) Unmarshal(data []byte, v interface{}) error {
 	switch msg := v.(type) {
 	case *GetUsernameRequest:
 		return unmarshalGetUsernameRequest(data, msg)
+	case *ValidateTokenRequest:
+		return unmarshalValidateTokenRequest(data, msg)
 	default:
 		return fmt.Errorf("codec: unsupported type %T", v)
 	}
@@ -117,4 +121,57 @@ func skipField(data []byte, wireType uint64) (int, error) {
 	default:
 		return 0, fmt.Errorf("codec: unsupported wire type %d", wireType)
 	}
+}
+
+// marshalValidateTokenResponse encodes field 1 (int64 user_id) and field 2 (string username).
+func marshalValidateTokenResponse(msg *ValidateTokenResponse) ([]byte, error) {
+	var buf []byte
+	if msg.UserId != 0 {
+		// field 1, wire type 0 (varint)
+		buf = append(buf, byte((1<<3)|0))
+		buf = appendVarint(buf, uint64(msg.UserId))
+	}
+	if msg.Username != "" {
+		usernameBytes := []byte(msg.Username)
+		// field 2, wire type 2 (length-delimited)
+		buf = append(buf, byte((2<<3)|2))
+		buf = appendVarint(buf, uint64(len(usernameBytes)))
+		buf = append(buf, usernameBytes...)
+	}
+	return buf, nil
+}
+
+// unmarshalValidateTokenRequest decodes field 1 (string token) from protobuf wire format.
+func unmarshalValidateTokenRequest(data []byte, msg *ValidateTokenRequest) error {
+	i := 0
+	for i < len(data) {
+		tagByte, n := decodeVarint(data[i:])
+		if n == 0 {
+			return fmt.Errorf("codec: failed to decode tag")
+		}
+		i += n
+		fieldNum := tagByte >> 3
+		wireType := tagByte & 0x7
+
+		switch fieldNum {
+		case 1: // token, length-delimited string
+			if wireType != 2 {
+				return fmt.Errorf("codec: wrong wire type for token")
+			}
+			length, n2 := decodeVarint(data[i:])
+			if n2 == 0 {
+				return fmt.Errorf("codec: failed to decode token length")
+			}
+			i += n2
+			msg.Token = string(data[i : i+int(length)])
+			i += int(length)
+		default:
+			n2, err := skipField(data[i:], wireType)
+			if err != nil {
+				return err
+			}
+			i += n2
+		}
+	}
+	return nil
 }
