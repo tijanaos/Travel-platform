@@ -1,11 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { toursClient } from '../api/client';
 import { useTourExecution } from '../context/TourExecutionContext';
 import { useAuth } from '../context/AuthContext';
+
+function ZoomControls() {
+  const map = useMap();
+  return (
+    <div style={{
+      position: 'absolute', top: 8, right: 8, zIndex: 1000,
+      display: 'flex', flexDirection: 'column', gap: 4,
+    }}>
+      {[{ label: '+', fn: () => map.zoomIn() }, { label: '−', fn: () => map.zoomOut() }].map(({ label, fn }) => (
+        <button key={label} onClick={fn} style={{
+          width: 28, height: 28, background: '#1a1a2e', color: '#fff',
+          border: '1px solid #e94560', borderRadius: 6,
+          fontSize: 16, lineHeight: 1, cursor: 'pointer', fontWeight: 700,
+        }}>{label}</button>
+      ))}
+    </div>
+  );
+}
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -154,6 +172,7 @@ export default function ActiveTourWidget() {
             <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}
               zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <ZoomControls />
               {keyPoints.length > 1 && (
                 <Polyline
                   positions={keyPoints.map(kp => [kp.latitude, kp.longitude] as [number, number])}
