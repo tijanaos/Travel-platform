@@ -38,6 +38,10 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            if (isPublicPath(path, request.getMethod())) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Missing or invalid Authorization header");
             return;
@@ -53,8 +57,7 @@ public class AuthFilter extends OncePerRequestFilter {
                     HttpMethod.GET,
                     entity,
                     ValidateResponse.class
-            );
-
+            ); 
             if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
                 request.setAttribute("userId", resp.getBody().getUserId());
 
