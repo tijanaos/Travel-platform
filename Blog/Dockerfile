@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN python -m grpc_tools.protoc -I./proto --python_out=. --grpc_python_out=. ./proto/blog.proto
+RUN python -m grpc_tools.protoc -I./proto --python_out=. --grpc_python_out=. ./proto/user.proto
 
 RUN mkdir -p uploads
 

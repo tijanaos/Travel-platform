@@ -38,7 +38,7 @@ func main() {
 	profileService := service.NewProfileService(profileRepo)
 	profileHandler := handler.NewProfileHandler(profileService, cfg.JWTSecret)
 
-	go grpcservice.StartGrpcServer(userRepo, cfg.GrpcPort)
+	go grpcservice.StartGrpcServer(userRepo, cfg.JWTSecret, cfg.GrpcPort)
 
 	r := gin.Default()
 

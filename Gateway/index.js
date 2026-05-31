@@ -12,8 +12,9 @@ const STAKEHOLDERS_URL    = process.env.STAKEHOLDERS_URL    || 'http://localhost
 const BLOG_URL            = process.env.BLOG_URL            || 'http://localhost:8081';
 const TOURS_URL           = process.env.TOURS_URL           || 'http://localhost:8082';
 const FOLLOWER_URL        = process.env.FOLLOWER_URL        || 'http://localhost:8083';
-const TOURS_GRPC_ADDRESS  = process.env.TOURS_GRPC_ADDRESS  || 'localhost:9091';
-const BLOG_GRPC_ADDRESS   = process.env.BLOG_GRPC_ADDRESS   || 'localhost:9092';
+const TOURS_GRPC_ADDRESS        = process.env.TOURS_GRPC_ADDRESS        || 'localhost:9091';
+const BLOG_GRPC_ADDRESS         = process.env.BLOG_GRPC_ADDRESS         || 'localhost:9092';
+const STAKEHOLDERS_GRPC_ADDRESS = process.env.STAKEHOLDERS_GRPC_ADDRESS || 'localhost:9090';
 
 // Load tour.proto for gRPC CreateTour call
 const PROTO_PATH = path.join(__dirname, 'proto', 'tour.proto');
@@ -29,6 +30,24 @@ const tourProto = grpc.loadPackageDefinition(packageDef).tour;
 function createTourGrpcClient() {
   return new tourProto.TourService(
     TOURS_GRPC_ADDRESS,
+    grpc.credentials.createInsecure()
+  );
+}
+
+// Load user.proto for gRPC Stakeholders calls
+const USER_PROTO_PATH = path.join(__dirname, 'proto', 'user.proto');
+const userPackageDef = protoLoader.loadSync(USER_PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
+const userProto = grpc.loadPackageDefinition(userPackageDef).user;
+
+function createStakeholdersGrpcClient() {
+  return new userProto.UserService(
+    STAKEHOLDERS_GRPC_ADDRESS,
     grpc.credentials.createInsecure()
   );
 }
@@ -172,9 +191,28 @@ function makeFetchProxy(target) {
   };
 }
 
-app.use('/api/auth',             makeFetchProxy(STAKEHOLDERS_URL));
-app.use('/api/profile',          makeFetchProxy(STAKEHOLDERS_URL));
-app.use('/api/users',            makeFetchProxy(STAKEHOLDERS_URL));
+app.use('/api/auth',    makeFetchProxy(STAKEHOLDERS_URL));
+app.use('/api/profile', makeFetchProxy(STAKEHOLDERS_URL));
+
+// GET /api/users/:id — get username via gRPC to Stakeholders
+app.get('/api/users/:id', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+
+  const client = createStakeholdersGrpcClient();
+  client.GetUsernameById({ user_id: userId }, (err, response) => {
+    client.close();
+    if (err) {
+      console.error('[Gateway] gRPC GetUsernameById error:', err.message);
+      return res.status(502).json({ error: 'gRPC call failed', detail: err.message });
+    }
+    res.status(200).json({ user_id: userId, username: response.username });
+  });
+});
+
+app.use('/api/users', makeFetchProxy(STAKEHOLDERS_URL));
 // GET /api/blogs/:id — via gRPC to Blog service
 app.get('/api/blogs/:id', (req, res) => {
   const authHeader = req.headers['authorization'] || '';
@@ -240,5 +278,6 @@ app.listen(PORT, () => {
   console.log(`  → blog         : ${BLOG_URL}`);
   console.log(`  → tours        : ${TOURS_URL} (gRPC CreateTour → ${TOURS_GRPC_ADDRESS})`);
   console.log(`  → blog (gRPC)  : ${BLOG_GRPC_ADDRESS}`);
+  console.log(`  → stakeholders (gRPC) : ${STAKEHOLDERS_GRPC_ADDRESS}`);
   console.log(`  → follower     : ${FOLLOWER_URL}`);
 });
