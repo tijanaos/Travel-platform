@@ -101,17 +101,42 @@ app.use((req, res, next) => {
 });
 
 // Intercept POST /api/tours — route via gRPC to Tours service
-app.post('/api/tours', express.json(), (req, res) => {
+app.post('/api/tours', express.json(), async (req, res) => {
   const authHeader = req.headers['authorization'] || '';
   const body = req.body || {};
 
-  // Extract user id from JWT payload (base64 decode middle segment)
-  let authorId = 0;
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  }
+
+  // Validate token through Stakeholders before using the JWT payload for role/user context.
+  let payload;
+  let authorId;
   try {
     const token = authHeader.replace(/^Bearer\s+/i, '');
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-    authorId = parseInt(payload.user_id || payload.userId || payload.sub || '0', 10);
-  } catch (_) {}
+    payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+
+    const validationResponse = await fetch(`${STAKEHOLDERS_URL}/api/auth/validate`, {
+      headers: { Authorization: authHeader },
+    });
+    if (!validationResponse.ok) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const validation = await validationResponse.json();
+    authorId = parseInt(validation.user_id || validation.userId || payload.user_id || payload.userId || payload.sub || '0', 10);
+  } catch (err) {
+    console.error('[Gateway] JWT validation failed:', err.message);
+    return res.status(401).json({ error: 'Token validation failed' });
+  }
+
+  const role = String(payload.role || '').toLowerCase();
+  if (role && role !== 'author' && role !== 'guide') {
+    return res.status(403).json({ error: 'Only authors or guides can create tours' });
+  }
+  if (!authorId) {
+    return res.status(401).json({ error: 'Missing user id in token' });
+  }
 
   const grpcReq = {
     name: body.name || '',
