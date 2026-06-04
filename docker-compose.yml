@@ -36,6 +36,7 @@ services:
       SERVER_PORT: 8080
       GRPC_PORT: 9090
       FOLLOWER_URL: http://follower-service:8083
+      NATS_URL: nats://nats:4222
       OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4318
     ports:
       - "8080:8080"
@@ -44,6 +45,8 @@ services:
       stakeholders-db:
         condition: service_healthy
       fluent-bit:
+        condition: service_started
+      nats:
         condition: service_started
     networks:
       - travel-network

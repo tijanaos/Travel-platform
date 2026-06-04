@@ -10,6 +10,7 @@ import rs.ac.uns.ftn.soa.tours.repository.TourRepository;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import rs.ac.uns.ftn.soa.tours.dto.ReserveTokenRequest;
+import rs.ac.uns.ftn.soa.tours.saga.CheckoutSagaOrchestrator;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,10 +22,7 @@ public class ShoppingCartService {
     private final ShoppingCartRepository cartRepository;
     private final TourPurchaseTokenRepository tokenRepository;
     private final TourRepository tourRepository;
-    private final RestTemplate restTemplate;
-
-    @Value("${stakeholders.service.url}")
-    private String stakeholdersUrl;
+    private final CheckoutSagaOrchestrator checkoutSagaOrchestrator;
 
     @Transactional
     public ShoppingCart getOrCreateCart(Long touristId) {
@@ -81,15 +79,11 @@ public class ShoppingCartService {
         return cartRepository.save(cart);
     }
 
-    // Uklonjen @Transactional
     public List<TourPurchaseToken> checkout(Long touristId) {
         ShoppingCart cart = getOrCreateCart(touristId);
         if (cart.getItems().isEmpty()) throw new RuntimeException("Korpa je prazna");
 
-        // ─── SAGA KORAK 1: Lokalna transakcija ───────────────────────────────────
-        // Kreiramo token za svaku turu u korpi sa statusom PENDING.
-        // Ovo je "zapis namere" — ako saga ovde stane, PENDING tokeni
-        // ostaju u bazi ali ne daju pristup turi (samo CONFIRMED daje).
+        // Saga prvi korak - kreiramo token za svaku turu u cartu(status Pending)
         List<TourPurchaseToken> tokens = cart.getItems().stream().map(item -> {
             TourPurchaseToken token = new TourPurchaseToken();
             token.setTouristId(touristId);
@@ -99,31 +93,23 @@ public class ShoppingCartService {
             return tokenRepository.save(token);
         }).toList();
 
-        // ─── SAGA KORAK 2: Distribuirani poziv ka Stakeholders servisu ───────────
-        // Stakeholders beleži rezervacije kako bi znao da je ovaj tourist
-        // u procesu kupovine. Šaljemo samo UUID tokene (ne ceo objekat).
-        // Kompenzacija: ako poziv ne uspe, svi PENDING tokeni se poništavaju
-        // — Stakeholders nije ništa upisao, pa nema šta da se poništava tamo.
+        //  Saga drugi korak - proveravamo dal je turista blokiran
+        List<String> tokenValues = tokens.stream()
+                .map(TourPurchaseToken::getToken)
+                .toList();
+
         try {
-            List<ReserveTokenRequest> tokenDtos = tokens.stream()
-                    .map(t -> new ReserveTokenRequest(t.getToken()))
-                    .toList();
-            restTemplate.postForEntity(stakeholdersUrl + "/api/users/" + touristId + "/reserve", tokenDtos, Void.class);
+            checkoutSagaOrchestrator.validate(touristId, tokenValues);
         } catch (Exception e) {
             tokens.forEach(t -> {
                 t.setStatus(PurchaseStatus.CANCELLED);
                 tokenRepository.save(t);
             });
+            checkoutSagaOrchestrator.rollback(touristId);
             throw new RuntimeException("Saga prekinuta (Korak 2): " + e.getMessage());
         }
 
-        // ─── SAGA KORAK 3: Finalizacija ──────────────────────────────────────────
-        // Potvrđujemo tokene jedan po jedan i pratimo koji su već CONFIRMED
-        // pre eventualnog pada. Korpa se prazni tek nakon što su svi tokeni
-        // potvrđeni — atomičnost na nivou lokalnog servisa.
-        // Kompenzacija: već CONFIRMED tokeni se vraćaju na CANCELLED,
-        // i šalje se release-all ka Stakeholders da obriše rezervacije.
-        // Ako i release-all padne, potrebna je manuelna intervencija.
+        // Saga treci korak
         List<TourPurchaseToken> confirmed = new java.util.ArrayList<>();
         try {
             for (TourPurchaseToken t : tokens) {
@@ -131,7 +117,6 @@ public class ShoppingCartService {
                 tokenRepository.save(t);
                 confirmed.add(t);
             }
-
             cart.getItems().clear();
             cart.setTotalPrice(0.0);
             cartRepository.save(cart);
@@ -140,14 +125,7 @@ public class ShoppingCartService {
                 t.setStatus(PurchaseStatus.CANCELLED);
                 tokenRepository.save(t);
             });
-
-            try {
-                restTemplate.delete(stakeholdersUrl + "/api/users/" + touristId + "/release-all");
-            } catch (Exception releaseEx) {
-                // Kompenzacija nije uspela — stanje je nekonzistentno,
-                // potrebna je manuelna intervencija ili retry mehanizam.
-            }
-
+            checkoutSagaOrchestrator.rollback(touristId);
             throw new RuntimeException("Saga prekinuta (Korak 3): Rollback izvršen");
         }
 
