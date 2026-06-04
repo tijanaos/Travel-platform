@@ -36,6 +36,7 @@ services:
       SERVER_PORT: 8080
       GRPC_PORT: 9090
       FOLLOWER_URL: http://follower-service:8083
+      NATS_URL: nats://nats:4222
       OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4318
     ports:
       - "8080:8080"
@@ -44,6 +45,8 @@ services:
       stakeholders-db:
         condition: service_healthy
       fluent-bit:
+        condition: service_started
+      nats:
         condition: service_started
     networks:
       - travel-network
@@ -103,6 +106,7 @@ services:
       SERVER_PORT: 8081
       BASE_URL: http://localhost:8081
       STAKEHOLDERS_URL: http://stakeholders-service:8080
+      NATS_URL: nats://nats:4222
       STAKEHOLDERS_GRPC_ADDRESS: stakeholders-service:9090
       GRPC_PORT: 9092
     ports:
@@ -114,6 +118,8 @@ services:
       blog-db:
         condition: service_healthy
       fluent-bit:
+        condition: service_started
+      nats:
         condition: service_started
     networks:
       - travel-network
@@ -174,6 +180,7 @@ services:
       DB_NAME: tours_db
       STAKEHOLDERS_URL: http://stakeholders-service:8080
       BLOG_URL: http://blog-service:8081
+      NATS_URL: nats://nats:4222
       STAKEHOLDERS_GRPC_HOST: stakeholders-service
       STAKEHOLDERS_GRPC_PORT: 9090
       GRPC_SERVER_PORT: 9091
@@ -187,6 +194,8 @@ services:
       tours-db:
         condition: service_healthy
       fluent-bit:
+        condition: service_started
+      nats:
         condition: service_started
     networks:
       - travel-network
@@ -375,6 +384,13 @@ services:
       - "16686:16686"
       - "4317:4317"
       - "4318:4318"
+    networks:
+      - travel-network
+
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
     networks:
       - travel-network
 

@@ -10,12 +10,18 @@ import rs.ac.uns.ftn.soa.tours.repository.KeyPointRepository;
 import rs.ac.uns.ftn.soa.tours.repository.TourRepository;
 import rs.ac.uns.ftn.soa.tours.repository.TransportTimeRepository;
 import rs.ac.uns.ftn.soa.tours.client.BlogClient;
+import rs.ac.uns.ftn.soa.tours.saga.TourSagaOrchestrator;
+import rs.ac.uns.ftn.soa.tours.config.NatsConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.nats.client.Connection;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TourService {
@@ -23,7 +29,9 @@ public class TourService {
     private final TourRepository tourRepository;
     private final KeyPointRepository keyPointRepository;
     private final TransportTimeRepository transportTimeRepository;
-    private final BlogClient blogClient;
+    private final TourSagaOrchestrator sagaOrchestrator;
+    private final Connection nats;
+    private final ObjectMapper objectMapper;
 
     public Tour createTour(CreateTourRequest req, Long authorId) {
         Tour tour = new Tour();
@@ -85,75 +93,51 @@ public class TourService {
     public Tour publishTour(Long tourId, Long requesterId) {
         Tour tour = getTourById(tourId);
 
-        if (!tour.getAuthorId().equals(requesterId)) {
+        if (!tour.getAuthorId().equals(requesterId))
             throw new SecurityException("Only the tour author can publish it");
-        }
-        if (tour.getStatus() != Tour.TourStatus.DRAFT) {
+        if (tour.getStatus() != Tour.TourStatus.DRAFT)
             throw new IllegalStateException("Only draft tours can be published");
-        }
 
         boolean hasBasicData = tour.getName() != null && !tour.getName().isBlank()
                 && tour.getDescription() != null && !tour.getDescription().isBlank()
                 && tour.getDifficulty() != null
                 && tour.getTags() != null && !tour.getTags().isEmpty();
-        if (!hasBasicData) {
+        if (!hasBasicData)
             throw new IllegalStateException("Tour must have name, description, difficulty and tags");
-        }
 
-        long kpCount = keyPointRepository.countByTourId(tourId);
-        if (kpCount < 2) {
+        if (keyPointRepository.countByTourId(tourId) < 2)
             throw new IllegalStateException("Tour must have at least two key points");
-        }
 
-        long ttCount = transportTimeRepository.findByTourId(tourId).size();
-        if (ttCount == 0) {
+        if (transportTimeRepository.findByTourId(tourId).isEmpty())
             throw new IllegalStateException("Tour must have at least one transport time defined");
-        }
 
-        // ─── SAGA KORAK 1: Lokalna transakcija ───────────────────────────────────
-        // Svi uslovi su ispunjeni, postavljamo turu na PUBLISHED lokalno.
-        // publishedAt se postavlja tek u Koraku 3 — tura je tehnički published
-        // ali bez blog posta još uvijek nije potpuno finalizovana.
+        // Saga prvi korak - lokalna transakcija
         tour.setStatus(Tour.TourStatus.PUBLISHED);
         tour = tourRepository.save(tour);
 
-        // ─── SAGA KORAK 2: Distribuirani poziv ka Blog servisu ───────────────────
-        // Kreiramo blog post koji najavljuje objavu ture.
-        // Kompenzacija: ako Blog servis padne, vraćamo turu na DRAFT.
+        // Saga drugi korak - orkestrator salje operaciju
         String blogPostId;
         try {
-            String blogDescription = String.format(
-                    "## %s\n\n%s\n\n**Difficulty:** %s\n**Tags:** %s",
-                    tour.getName(),
-                    tour.getDescription(),
-                    tour.getDifficulty(),
-                    String.join(", ", tour.getTags())
-            );
-            blogPostId = blogClient.createBlogPost(
-                    "New tour: " + tour.getName(),
-                    blogDescription,
-                    tour.getAuthorId()
-            );
+            blogPostId = sagaOrchestrator.publishTourSaga(tour);
         } catch (Exception e) {
-            // Kompenzacija: vrati turu na DRAFT
+            // Kompenzacija
             tour.setStatus(Tour.TourStatus.DRAFT);
             tourRepository.save(tour);
-            throw new RuntimeException("Saga prekinuta (Korak 2): Blog servis nije dostupan - " + e.getMessage());
+            throw new RuntimeException("Saga prekinuta: " + e.getMessage());
         }
 
-        // ─── SAGA KORAK 3: Finalizacija ──────────────────────────────────────────
-        // Postavljamo publishedAt i čuvamo blogPostId na turi.
-        // Kompenzacija: vraćamo turu na DRAFT i brišemo blog post.
+        // Saga treci korak
         try {
-            tour.setPublishedAt(LocalDateTime.now());
+            tour.setPublishedAt(java.time.LocalDateTime.now());
             tour.setBlogPostId(blogPostId);
             return tourRepository.save(tour);
         } catch (Exception e) {
-            // Kompenzacija: obriši blog post i vrati turu na DRAFT
+            // Kompenzacija
             try {
-                blogClient.deleteBlogPost(blogPostId);
-            } catch (Exception deleteEx) {
-                // log - manuelna intervencija potrebna
+                nats.publish("tour.publish.rollback",
+                        objectMapper.writeValueAsBytes(Map.of("blogPostId", blogPostId)));
+            } catch (Exception ex) {
+                log.error("Rollback event nije mogao biti poslat: {}", ex.getMessage());
             }
             tour.setStatus(Tour.TourStatus.DRAFT);
             tour.setPublishedAt(null);

@@ -9,15 +9,18 @@ from app.config import settings
 from app.database import close_db, init_db
 from app.grpc_server import serve as start_grpc
 from app.router import router
+from app.saga_subscriber import start_saga_subscriber
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     grpc_server = await start_grpc(settings.grpc_port)
+    nats_client = await start_saga_subscriber()
     yield
     close_db()
     await grpc_server.stop(0)
+    await nats_client.close()
 
 
 app = FastAPI(title="Blog Service", lifespan=lifespan)

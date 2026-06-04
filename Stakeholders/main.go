@@ -16,6 +16,7 @@ import (
 	"context"
     "github.com/tijanaos/Stakeholders/tracing"
     "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"github.com/tijanaos/Stakeholders/internal/saga"
 )
 
 func main() {
@@ -45,6 +46,7 @@ func main() {
 	profileHandler := handler.NewProfileHandler(profileService, cfg.JWTSecret)
 
 	go grpcservice.StartGrpcServer(userRepo, cfg.JWTSecret, cfg.GrpcPort)
+	go saga.StartNatsSubscriber(userService, userRepo)
 
 	r := gin.Default()
 	r.Use(otelgin.Middleware("stakeholders-service"))
